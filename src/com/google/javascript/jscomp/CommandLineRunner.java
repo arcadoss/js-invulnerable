@@ -109,6 +109,11 @@ public class CommandLineRunner extends
         + " tree and exits")
     private boolean print_ast = false;
 
+    @Option(name = "--print_analysis",
+        handler = BooleanOptionHandler.class,
+        usage = "Prints a dot file with my cool analysis informatino")
+    private boolean print_analysis = false;
+
     @Option(name = "--print_pass_graph",
         handler = BooleanOptionHandler.class,
         usage = "Prints a dot file describing the passes that will get run"
@@ -507,6 +512,7 @@ public class CommandLineRunner extends
           .setPrintTree(flags.print_tree)
           .setComputePhaseOrdering(flags.compute_phase_ordering)
           .setPrintAst(flags.print_ast)
+          .setPrintAst(flags.print_analysis)
           .setPrintPassGraph(flags.print_pass_graph)
           .setJscompDevMode(flags.jscomp_dev_mode)
           .setLoggingLevel(flags.logging_level)
