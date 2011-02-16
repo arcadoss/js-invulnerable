@@ -28,6 +28,7 @@
   <property name="lib.dir" value="${basedir}/lib" />
   <property name="tools.dir" value="${basedir}/tools" />
   <property name="jarfile" value="${build.dir}/${ant.project.name}.jar" />
+  <property name="myJarfile" value="${build.dir}/analyzer.jar" />
   <property name="num-fuzz-tests" value="10000"/>
   <property name="test" value="*Test"/>
   <property name="jsonml.dir" value="${basedir}/src/com/google/javascript/jscomp/jsonml" />
@@ -236,6 +237,22 @@
       <manifest>
         <attribute name="Main-Class"
                    value="com.google.javascript.jscomp.CommandLineRunner" />
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="analyzer"
+          depends="compile"
+          description="package compiler as an executable jar">
+    <zip destfile="${build.dir}/externs.zip" basedir="${externs.dir}" includes="*.js" />
+    <jar destfile="${myJarfile}" update="true">
+      <fileset dir="${classes.dir}" />
+      <fileset dir="${build.dir}" includes="externs.zip" />
+      <zipgroupfileset dir="${lib.dir}"/>
+
+      <manifest>
+        <attribute name="Main-Class"
+                   value="com.google.javascript.jscomp.MyCommandLineRunner" />
       </manifest>
     </jar>
   </target>
