@@ -816,6 +816,23 @@ final public class JSDocInfoBuilder {
   }
 
   /**
+   * Records that the {@link JSDocInfo} being built should have its
+   * {@link JSDocInfo#isAnalysis()} flag set to {@code true}.
+   *
+   * @return {@code true} if the analysis flag was recorded and {@code false}
+   *     if it was already recorded
+   */
+  public boolean recordAnalysis() {
+    if (!currentInfo.isAnalysis()) {
+      currentInfo.setAnalysis(true);
+      populated = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * Whether the {@link JSDocInfo} being built will have its
    * {@link JSDocInfo#isInterface()} flag set to {@code true}.
    */

@@ -756,6 +756,14 @@ public final class JsDocInfoParser {
                   token = versionInfo.token;
                   continue retry;
 
+                case ANALYSIS:
+                  if (!jsdocBuilder.recordAnalysis()) {
+                    parser.addWarning("msg.jsdoc.analysis",
+                        stream.getLineno(), stream.getCharno());
+                  }
+                  token = eatTokensUntilEOL();
+                  continue retry;
+
                 case DEFINE:
                 case RETURN:
                 case THIS:

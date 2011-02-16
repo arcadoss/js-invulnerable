@@ -67,7 +67,8 @@ enum Annotation {
   THROWS,
   TYPE,
   TYPEDEF,
-  VERSION;
+  VERSION,
+  ANALYSIS; // make my special analysis
 
   static final Map<String, Annotation> recognizedAnnotations =
       new ImmutableMap.Builder<String, Annotation>().
@@ -118,5 +119,6 @@ enum Annotation {
       put("type", Annotation.TYPE).
       put("typedef", Annotation.TYPEDEF).
       put("version", Annotation.VERSION).
+      put("analysis", Annotation.ANALYSIS).
       build();
 }
