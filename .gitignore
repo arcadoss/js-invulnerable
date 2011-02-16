@@ -2,3 +2,5 @@
 javadoc/*
 build/*
 out/*
+.ant-targets-build.xml
+Js-invulnerable.iml

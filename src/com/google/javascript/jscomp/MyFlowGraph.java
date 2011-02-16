@@ -1,7 +1,6 @@
 package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.graph.DiGraph;
-import com.google.javascript.jscomp.graph.GraphNode;
 import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -31,17 +30,20 @@ public class MyFlowGraph extends LinkedDirectedGraph {
 
     public Creator() {
       this.flowGraph = new MyFlowGraph();
-      this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_ROOT, null));
-      this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_EXIT, null));
+      this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_ROOT));
+      this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_EXIT));
     }
 
     public void process(Node externs, Node root) {
       try {
         DiGraphNode<MyNode, Branch> first = null;
-        List<DiGraphNode<MyNode, Branch>> leafs = null;
+        List<Pair> leafs = new ArrayList<Pair>();
 
         rebuild(root, first, leafs);
         flowGraph.connect(pseudoRoot, Branch.MY_UNCOND, first);
+        for (Pair leaf : leafs) {
+          flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), pseudoExit);
+        }
 
       } catch (UnimplTransformEx unimplTransformEx) {
         unimplTransformEx.printStackTrace();
@@ -49,16 +51,15 @@ public class MyFlowGraph extends LinkedDirectedGraph {
     }
 
     public TempValue rebuild(Node entry,
-//                          List<DiGraphEdge<MyNode, Branch>> predcessors,
-                             DiGraphNode<MyNode, Branch> first,
-                             List<DiGraphNode<MyNode, Branch>> leafs) throws UnimplTransformEx {
-      String newTemp = null;
-
+                             DiGraphNode<MyNode, Branch> root,
+                             List<Pair> leafs) throws UnimplTransformEx {
       switch (entry.getType()) {
         case Token.IF:
-          return handleIf(entry, first, leafs);
+          return handleIf(entry, root, leafs);
         case Token.WHILE:
-          return handleWhile(entry, first, leafs);
+          return handleWhile(entry, root, leafs);
+        case Token.DO:
+          return handleDo(entry, root, leafs);
 
         default:
           throw new UnimplTransformEx(entry);
@@ -66,25 +67,71 @@ public class MyFlowGraph extends LinkedDirectedGraph {
 
     }
 
-    private TempValue handleWhile(Node entry, DiGraphNode<MyNode, Branch> first, List<DiGraphNode<MyNode, Branch>> leafs) {
+    private TempValue handleDo(Node entry, DiGraphNode<MyNode, Branch> first, List<Pair> leafs) throws UnimplTransformEx {
+      Node bodyBlock = entry.getFirstChild();
+      Node condBlock = bodyBlock.getNext();
+
+      List<Pair> bodyLeafs = new ArrayList<Pair>();
+      rebuild(bodyBlock, first, bodyLeafs);
+
+      DiGraphNode<MyNode,Branch> condFirst = null;
+      List<Pair> condLeafs = new ArrayList<Pair>();
+      TempValue val = rebuild(condBlock, condFirst, condLeafs);
+
+      DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, val));
+      for (Pair leaf : bodyLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), condFirst);
+      }
+      for (Pair leaf : condLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), ifNode);
+      }
+      flowGraph.connect(ifNode, Branch.MY_TRUE, first);
+      leafs.add(new Pair(ifNode, Branch.MY_FALSE));
+
       return null;
     }
 
-    private TempValue handleIf(Node entry, DiGraphNode<MyNode, Branch> first, List<DiGraphNode<MyNode, Branch>> leafs) throws UnimplTransformEx {
+    private TempValue handleWhile(Node entry, DiGraphNode<MyNode, Branch> first, List<Pair> leafs) throws UnimplTransformEx {
+      Node condBlock = entry.getFirstChild();
+      Node bodyBlock = condBlock.getNext();
+      List<Pair> condLeafs = new ArrayList<Pair>();
+
+
+      TempValue val = rebuild(condBlock, first, condLeafs);
+      DiGraphNode<MyNode, Branch> whileNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, val));
+      for (Pair leaf : condLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), whileNode);
+      }
+
+      List<Pair> bodyLeafs = new ArrayList<Pair>();
+      DiGraphNode<MyNode,Branch> bodyNode = null;
+      rebuild(bodyBlock, bodyNode, bodyLeafs);
+
+      for (Pair leaf : bodyLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), first);
+      }
+
+      flowGraph.connect(whileNode, Branch.MY_TRUE, bodyNode);
+      leafs.add(new Pair(whileNode, Branch.MY_FALSE));
+
+      return null;
+    }
+
+    private TempValue handleIf(Node entry,
+                               DiGraphNode<MyNode, Branch> first,
+                               List<Pair> leafs) throws UnimplTransformEx {
       Node condition = entry.getFirstChild();
       Node thenBlock = condition.getNext();
       Node elseBlock = thenBlock.getNext();
 
       DiGraphNode<MyNode, Branch> thenNode = null;
       DiGraphNode<MyNode, Branch> elseNode = null;
-      List<DiGraphNode<MyNode, Branch>> condLeafs = new ArrayList<DiGraphNode<MyNode, Branch>>();
-      List<TempValue> operands = new ArrayList<TempValue>();
+      List<Pair> condLeafs = new ArrayList<Pair>();
 
       TempValue val = rebuild(condition, first, condLeafs);
-      operands.add(val);
-      GraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, operands));
-      for (GraphNode leaf : leafs) {
-        flowGraph.connect(leaf, Branch.MY_UNCOND, ifNode);
+      DiGraphNode<MyNode, Branch> ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, val));
+      for (Pair leaf : condLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), ifNode);
       }
 
       rebuild(thenBlock, thenNode, leafs);
@@ -114,6 +161,28 @@ public class MyFlowGraph extends LinkedDirectedGraph {
     MY_RETURN;
   }
 
+  private class Pair {
+    DiGraphNode<MyNode, Branch> node;
+    Branch annotaion;
+
+    private Pair(DiGraphNode<MyNode, Branch> node) {
+      this.node = node;
+      this.annotaion = Branch.MY_UNCOND;
+    }
+
+    private Pair(DiGraphNode<MyNode, Branch> node, Branch annotaion) {
+      this.node = node;
+      this.annotaion = annotaion;
+    }
+
+    public DiGraphNode<MyNode, Branch> getNode() {
+      return node;
+    }
+
+    public Branch getAnnotaion() {
+      return annotaion;
+    }
+  }
 
   public class TempValue {
   }

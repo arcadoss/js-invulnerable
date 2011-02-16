@@ -11,6 +11,50 @@ import java.util.List;
  * To change this template use File | Settings | File Templates.
  */
 public class MyNode {
+  Type command;
+  List<MyFlowGraph.TempValue> operands;
+
+  public MyNode(Type command) {
+    this.command = command;
+    this.operands = null;
+  }
+
+  public MyNode() {
+    this.command = Type.MY_PSEUDO_NODE;
+    this.operands = null;
+  }
+
+  public MyNode(Type command, List<MyFlowGraph.TempValue> operands) {
+    this.command = command;
+    this.operands = operands;
+  }
+
+  public MyNode(Type command, MyFlowGraph.TempValue operand) {
+    this.command = command;
+    this.operands = new ArrayList<MyFlowGraph.TempValue>();
+    this.operands.add(operand);
+  }
+
+  public List<MyFlowGraph.TempValue> getOperands() {
+    return operands;
+  }
+
+  public void setOperands(MyFlowGraph.TempValue[] arguments) {
+    operands = new ArrayList<MyFlowGraph.TempValue>();
+
+    for (MyFlowGraph.TempValue op : arguments) {
+      operands.add(op);
+    }
+  }
+
+  public Type getCommand() {
+    return command;
+  }
+
+  public void setCommand(Type command) {
+    this.command = command;
+  }
+
   public static enum Type {
     // pseudo node
     MY_PSEUDO_NODE,
@@ -86,36 +130,4 @@ public class MyNode {
 
   }
 
-  Type command;
-  List<MyFlowGraph.TempValue> operands;
-
-   public MyNode() {
-    this.command = Type.MY_PSEUDO_NODE;
-    this.operands = null;
-  }
-
-  public MyNode(Type command, List<MyFlowGraph.TempValue> operands) {
-    this.command = command;
-    this.operands = operands;
-  }
-
-  public List<MyFlowGraph.TempValue> getOperands() {
-    return operands;
-  }
-
-  public void setOperands(MyFlowGraph.TempValue[] arguments) {
-    operands = new ArrayList<MyFlowGraph.TempValue>();
-
-    for (MyFlowGraph.TempValue op : arguments) {
-      operands.add(op);
-    }
-  }
-
-  public Type getCommand() {
-    return command;
-  }
-
-  public void setCommand(Type command) {
-    this.command = command;
-  }
 }
