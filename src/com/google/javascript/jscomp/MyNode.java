@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class MyNode {
   Type command;
-  List<MyFlowGraph.TempValue> operands;
+  List<MyAbsValue> operands;
 
   public MyNode(Type command) {
     this.command = command;
@@ -24,25 +24,25 @@ public class MyNode {
     this.operands = null;
   }
 
-  public MyNode(Type command, List<MyFlowGraph.TempValue> operands) {
+  public MyNode(Type command, List<MyAbsValue> operands) {
     this.command = command;
     this.operands = operands;
   }
 
-  public MyNode(Type command, MyFlowGraph.TempValue operand) {
+  public MyNode(Type command, MyAbsValue operand) {
     this.command = command;
-    this.operands = new ArrayList<MyFlowGraph.TempValue>();
+    this.operands = new ArrayList<MyAbsValue>();
     this.operands.add(operand);
   }
 
-  public List<MyFlowGraph.TempValue> getOperands() {
+  public List<MyAbsValue> getOperands() {
     return operands;
   }
 
-  public void setOperands(MyFlowGraph.TempValue[] arguments) {
-    operands = new ArrayList<MyFlowGraph.TempValue>();
+  public void setOperands(MyAbsValue[] arguments) {
+    operands = new ArrayList<MyAbsValue>();
 
-    for (MyFlowGraph.TempValue op : arguments) {
+    for (MyAbsValue op : arguments) {
       operands.add(op);
     }
   }
