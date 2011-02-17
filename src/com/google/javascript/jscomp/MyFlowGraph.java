@@ -5,8 +5,7 @@ import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * User: arcadoss
@@ -27,6 +26,9 @@ public class MyFlowGraph extends LinkedDirectedGraph {
     MyFlowGraph flowGraph;
     DiGraphNode<MyNode, Branch> pseudoRoot;
     DiGraphNode<MyNode, Branch> pseudoExit;
+    List<DiGraphNode<MyNode, Branch>> loopsRoots = new ArrayList<DiGraphNode<MyNode, Branch>>();
+    List<DiGraphNode<MyNode, Branch>> loopsBreaks = new LinkedList<DiGraphNode<MyNode, Branch>>();
+    Map labels = new HashMap<String, DiGraphNode<MyNode, Branch>>();
 
     public Creator() {
       this.flowGraph = new MyFlowGraph();
@@ -50,9 +52,7 @@ public class MyFlowGraph extends LinkedDirectedGraph {
       }
     }
 
-    public TempValue rebuild(Node entry,
-                             DiGraphNode<MyNode, Branch> root,
-                             List<Pair> leafs) throws UnimplTransformEx {
+    public TempValue rebuild(Node entry, DiGraphNode<MyNode, Branch> root, List<Pair> leafs) throws UnimplTransformEx {
       switch (entry.getType()) {
         case Token.IF:
           return handleIf(entry, root, leafs);
@@ -60,6 +60,11 @@ public class MyFlowGraph extends LinkedDirectedGraph {
           return handleWhile(entry, root, leafs);
         case Token.DO:
           return handleDo(entry, root, leafs);
+        case Token.SWITCH:
+          return handleSwitch(entry, root, leafs);
+        case Token.BLOCK:
+          return handleBlock(entry, root, leafs);
+
 
         default:
           throw new UnimplTransformEx(entry);
@@ -67,16 +72,155 @@ public class MyFlowGraph extends LinkedDirectedGraph {
 
     }
 
+    private TempValue handleBlock(Node entry, DiGraphNode<MyNode, Branch> first, List<Pair> leafs) throws UnimplTransformEx {
+      List<Pair> prevLeafs = new ArrayList<Pair>();
+      DiGraphNode<MyNode,Branch> currFirst = first;
+
+      for (Node child : entry.children()) {
+        List<Pair> currLeafs = new ArrayList<Pair>();
+        rebuild(child, currFirst, currLeafs);
+
+        for (Pair prev : prevLeafs) {
+          flowGraph.connect(prev.getNode(), prev.getAnnotaion(), currFirst);
+        }
+        prevLeafs = currLeafs;
+        // TODO: is it right?
+        currFirst = null;
+      }
+      leafs.addAll(prevLeafs);
+      return null;
+    }
+
+    private TempValue handleSwitch(Node entry, DiGraphNode<MyNode, Branch> first, List<Pair> leafs) throws UnimplTransformEx {
+      Node expBranch = entry.getFirstChild();
+      Node defaultBranch = null;
+
+      List<Pair> expLeafs = new ArrayList<Pair>();
+      TempValue val = rebuild(expBranch, first, expLeafs);
+
+      Node child = entry.getNext();
+      List<Pair> toNextCase = new ArrayList<Pair>();
+
+      if (child.getType() == Token.CASE) {
+        Node condBranch = child.getFirstChild();
+        Node blockBranch = condBranch.getNext();
+
+        List<Pair> condLeafs = new ArrayList<Pair>();
+        DiGraphNode<MyNode, Branch> condNode = null;
+        TempValue caseVal = rebuild(condBranch, condNode, condLeafs);
+
+        for (Pair leaf : expLeafs) {
+          flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), condNode);
+        }
+
+        DiGraphNode caseNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, caseVal));
+
+        DiGraphNode<MyNode, Branch> blockNode = null;
+        List<Pair> blockLeafs = new ArrayList<Pair>();
+        rebuild(blockBranch, blockNode, blockLeafs);
+
+        flowGraph.connect(caseNode, Branch.MY_TRUE, blockNode);
+        toNextCase.add(new Pair(caseNode, Branch.MY_FALSE));
+
+        if (loopsBreaks.size() == 0) {
+          toNextCase.addAll(blockLeafs);
+        } else {
+          leafs.addAll(blockLeafs);
+          // FIXME: nested switch will fail here
+          loopsBreaks.clear();
+        }
+
+      } else {
+        Node blockBrach = child.getFirstChild();
+        DiGraphNode<MyNode, Branch> blockNode = null;
+        List<Pair> blockLeafs = new ArrayList<Pair>();
+
+        rebuild(blockBrach, blockNode, blockLeafs);
+        for (Pair leaf : expLeafs) {
+          flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), blockNode);
+        }
+
+        if (loopsBreaks.size() == 0) {
+          toNextCase.addAll(blockLeafs);
+        } else {
+          leafs.addAll(blockLeafs);
+          // FIXME: nested switch will fail here
+          loopsBreaks.clear();
+        }
+      }
+
+
+      while ((child = entry.getNext()) != null) {
+        if (child.getType() == Token.CASE) {
+          Node condBranch = child.getFirstChild();
+          Node blockBranch = condBranch.getNext();
+
+          List<Pair> condLeafs = new ArrayList<Pair>();
+          DiGraphNode<MyNode, Branch> condNode = null;
+          TempValue caseVal = rebuild(condBranch, condNode, condLeafs);
+
+          for (Pair leaf : toNextCase) {
+            flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), condNode);
+          }
+          toNextCase.clear();
+
+          DiGraphNode caseNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, caseVal));
+
+          DiGraphNode<MyNode, Branch> blockNode = null;
+          List<Pair> blockLeafs = new ArrayList<Pair>();
+          rebuild(blockBranch, blockNode, blockLeafs);
+
+          flowGraph.connect(caseNode, Branch.MY_TRUE, blockNode);
+          toNextCase.add(new Pair(caseNode, Branch.MY_FALSE));
+
+          if (loopsBreaks.size() == 0) {
+            toNextCase.addAll(blockLeafs);
+          } else {
+            leafs.addAll(blockLeafs);
+            // FIXME: nested switch will fail here
+            loopsBreaks.clear();
+          }
+
+        } else {
+          Node blockBrach = child.getFirstChild();
+          DiGraphNode<MyNode, Branch> blockNode = null;
+          List<Pair> blockLeafs = new ArrayList<Pair>();
+
+          rebuild(blockBrach, blockNode, blockLeafs);
+          for (Pair leaf : toNextCase) {
+            flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), blockNode);
+          }
+          toNextCase.clear();
+
+          if (loopsBreaks.size() == 0) {
+            toNextCase.addAll(blockLeafs);
+          } else {
+            leafs.addAll(blockLeafs);
+            // FIXME: nested switch will fail here
+            loopsBreaks.clear();
+          }
+
+        }
+
+      }
+      return null;
+    }
+
     private TempValue handleDo(Node entry, DiGraphNode<MyNode, Branch> first, List<Pair> leafs) throws UnimplTransformEx {
       Node bodyBlock = entry.getFirstChild();
       Node condBlock = bodyBlock.getNext();
 
-      List<Pair> bodyLeafs = new ArrayList<Pair>();
-      rebuild(bodyBlock, first, bodyLeafs);
 
-      DiGraphNode<MyNode,Branch> condFirst = null;
+      List<Pair> bodyLeafs = new ArrayList<Pair>();
+
+      DiGraphNode<MyNode, Branch> condFirst = null;
       List<Pair> condLeafs = new ArrayList<Pair>();
       TempValue val = rebuild(condBlock, condFirst, condLeafs);
+
+      // in 'do .. continue .. while (condition)' continue jumps to 'condition'
+      loopsRoots.add(condFirst);
+
+      rebuild(bodyBlock, first, bodyLeafs);
 
       DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, val));
       for (Pair leaf : bodyLeafs) {
@@ -88,6 +232,12 @@ public class MyFlowGraph extends LinkedDirectedGraph {
       flowGraph.connect(ifNode, Branch.MY_TRUE, first);
       leafs.add(new Pair(ifNode, Branch.MY_FALSE));
 
+      loopsRoots.remove(loopsRoots.size() - 1);
+      for (DiGraphNode<MyNode, Branch> breakNode : loopsBreaks) {
+        leafs.add(new Pair(breakNode, Branch.MY_UNCOND));
+      }
+      loopsBreaks.clear();
+
       return null;
     }
 
@@ -96,6 +246,7 @@ public class MyFlowGraph extends LinkedDirectedGraph {
       Node bodyBlock = condBlock.getNext();
       List<Pair> condLeafs = new ArrayList<Pair>();
 
+      loopsRoots.add(first);
 
       TempValue val = rebuild(condBlock, first, condLeafs);
       DiGraphNode<MyNode, Branch> whileNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_IF, val));
@@ -104,7 +255,7 @@ public class MyFlowGraph extends LinkedDirectedGraph {
       }
 
       List<Pair> bodyLeafs = new ArrayList<Pair>();
-      DiGraphNode<MyNode,Branch> bodyNode = null;
+      DiGraphNode<MyNode, Branch> bodyNode = null;
       rebuild(bodyBlock, bodyNode, bodyLeafs);
 
       for (Pair leaf : bodyLeafs) {
@@ -113,6 +264,12 @@ public class MyFlowGraph extends LinkedDirectedGraph {
 
       flowGraph.connect(whileNode, Branch.MY_TRUE, bodyNode);
       leafs.add(new Pair(whileNode, Branch.MY_FALSE));
+
+      loopsRoots.remove(loopsRoots.size() - 1);
+      for (DiGraphNode<MyNode, Branch> breakNode : loopsBreaks) {
+        leafs.add(new Pair(breakNode, Branch.MY_UNCOND));
+      }
+      loopsBreaks.clear();
 
       return null;
     }
