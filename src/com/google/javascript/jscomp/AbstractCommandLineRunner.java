@@ -643,12 +643,12 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
       }
     }
 
-    if (config.printAnalysis) {
+    if (config.printFlowGraph) {
       if (compiler.getRoot() == null) {
         return 1;
       } else {
-        ControlFlowGraph<Node> cfg = compiler.computeCFG();
-        String analysis = DotFormatter.toDot(compiler.getRoot().getLastChild(), cfg, true);
+        MyFlowGraph fg = compiler.computeFlowGraph();
+        String analysis = DotFormatter.toDot(fg);
         out.append(analysis);
         out.append('\n');
         return 0;
@@ -1236,22 +1236,19 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
 
     private boolean printAst = false;
 
-    public boolean isPrintAnalysis() {
-      return printAnalysis;
-    }
-
-    public void setPrintAnalysis(boolean printAnalysis) {
-      this.printAnalysis = printAnalysis;
-    }
-
-    private boolean printAnalysis = false;
-
     /**
      * Prints a dot file describing the internal abstract syntax tree
      * and exits
      */
     CommandLineConfig setPrintAst(boolean printAst) {
       this.printAst = printAst;
+      return this;
+    }
+
+    private boolean printFlowGraph = false;
+
+    CommandLineConfig setPrintFlowGraph(boolean printFlowGraph) {
+      this.printFlowGraph = printFlowGraph;
       return this;
     }
 

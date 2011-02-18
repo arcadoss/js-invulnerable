@@ -7,11 +7,13 @@ import com.google.javascript.rhino.Token;
 import java.util.*;
 
 /**
-* User: arcadoss
-* Date: 17.02.11
-* Time: 15:09
-*/
+ * User: arcadoss
+ * Date: 17.02.11
+ * Time: 15:09
+ */
 public class MyFlowGraphCreator implements CompilerPass {
+  private final AbstractCompiler compiler;
+
   MyFlowGraph flowGraph;
   DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoRoot;
   DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoExit;
@@ -19,7 +21,8 @@ public class MyFlowGraphCreator implements CompilerPass {
   List<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> loopsBreaks = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
   Map labels = new HashMap<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
 
-  public MyFlowGraphCreator() {
+  public MyFlowGraphCreator(AbstractCompiler compiler) {
+    this.compiler = compiler;
     this.flowGraph = new MyFlowGraph();
     this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_ROOT));
     this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_EXIT));
@@ -282,8 +285,8 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MyAbsValue handleIf(Node entry,
-                                 DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first,
-                                 List<Pair> leafs) throws UnimplTransformEx, UnexpectedNode {
+                              DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first,
+                              List<Pair> leafs) throws UnimplTransformEx, UnexpectedNode {
     Node condition = entry.getFirstChild();
     Node thenBlock = condition.getNext();
     Node elseBlock = thenBlock.getNext();
@@ -307,6 +310,10 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
 
     return null;
+  }
+
+  public MyFlowGraph getFlowGraph() {
+    return flowGraph;
   }
 
 
