@@ -34,7 +34,7 @@ while (global > 10) {
 }
 
 do {
-  gobal += 1
+  global += 1
 } while (global < 0)
 
 while (True) {

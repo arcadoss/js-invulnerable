@@ -1,0 +1,14 @@
+ 1. If you want to run compiler in debugger you should copy
+    externs.zip to proper place:
+
+      cp ./build/externs.zip ./build/classes/com/
+
+
+ 2. If you want interpretator's flow graph for file.js you 
+    should run compiler with the following options:
+
+      java -jar ./build/compiler.jar --print_flowgraph --js file.js \
+	   --compilation_level WHITESPACE_ONLY  > file.dot
+
+
+ 3. If you want to perfom analysis you should 
