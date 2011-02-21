@@ -21,11 +21,14 @@ public class MyFlowGraphCreator implements CompilerPass {
   List<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> loopsBreaks = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
   Map labels = new HashMap<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
 
+  int tempVarCounter;
+
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
     this.flowGraph = new MyFlowGraph();
     this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_ROOT));
     this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_PSEUDO_EXIT));
+    this.tempVarCounter = 0;
   }
 
   public void process(Node externs, Node root) {
@@ -62,11 +65,35 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleBlock(entry, root, leafs);
       case Token.VAR:
         return handleVar(entry, root, leafs);
+      case Token.STRING:
+        return handleString(entry, root, leafs);
+      case Token.NUMBER:
+        return handleNumber(entry, root, leafs);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MyAbsValue handleNumber(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
+    MyAbsValue tempVarName = MyAbsValue.newString(nextTempVar());
+    MyAbsValue constValue = MyAbsValue.newNumber(entry.getDouble());
+
+    first = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_CONSTANT, constValue, tempVarName));
+    leafs.add(new Pair(first, MyFlowGraph.Branch.MY_UNCOND));
+
+    return tempVarName;
+  }
+
+  private MyAbsValue handleString(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
+    MyAbsValue tempVarName = MyAbsValue.newString(nextTempVar());
+    MyAbsValue constValue = MyAbsValue.newString(entry.getString());
+
+    first = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_CONSTANT, constValue, tempVarName));
+    leafs.add(new Pair(first, MyFlowGraph.Branch.MY_UNCOND));
+
+    return tempVarName;
   }
 
   private MyAbsValue handleVar(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) throws UnexpectedNode, UnimplTransformEx {
@@ -365,6 +392,11 @@ public class MyFlowGraphCreator implements CompilerPass {
     return flowGraph;
   }
 
+  private String nextTempVar() {
+    final String tempVarBase = "tempVar ";
+    tempVarCounter += 1;
+    return tempVarBase + tempVarCounter;
+  }
 
   private class Pair {
     DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node;

@@ -18,20 +18,20 @@ public class MyAbsValue {
     }
   }
 
-  private static class IntValue extends MyAbsValue {
-    int value;
+  private static class NmbValue extends MyAbsValue {
+    double value;
 
-    public IntValue(int value) {
+    public NmbValue(double value) {
       this.value = value;
     }
 
-    public int getValue() {
+    public double getValue() {
       return value;
     }
   }
 
-  public static MyAbsValue newNumber(int value) {
-    return new IntValue(value);
+  public static MyAbsValue newNumber(double value) {
+    return new NmbValue(value);
   }
 
   public static MyAbsValue newString(String value) {
