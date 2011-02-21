@@ -57,6 +57,7 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleDo(entry, root, leafs);
       case Token.SWITCH:
         return handleSwitch(entry, root, leafs);
+      case Token.SCRIPT:
       case Token.BLOCK:
         return handleBlock(entry, root, leafs);
       case Token.VAR:
@@ -68,17 +69,65 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
-  private MyAbsValue handleVar(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) throws UnexpectedNode {
+  private MyAbsValue handleVar(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) throws UnexpectedNode, UnimplTransformEx {
+    Node varBlock = entry.getFirstChild();
+    MyAbsValue varName;
+    DiGraph.DiGraphNode varNode;
+    Pair toNextNode;
 
-    for (Node child : entry.children()) {
-      if (child.getType() != Token.NAME)
-        throw new UnexpectedNode(child);
+    // get variable's name
+    varName = MyAbsValue.newString(varBlock.getString());
+    varNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_DECLARE_VARIABLE, varName));
+    first = varNode;
 
-      MyAbsValue varName = MyAbsValue.newString(child.getString());
-      flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_DECLARE_VARIABLE, varName));
+    if (varBlock.hasOneChild()) {
+      List<Pair> valueLeafs = new ArrayList<Pair>();
+      DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> valueFirst = null;
+      MyAbsValue tempName;
 
+      tempName = rebuild(varBlock.getFirstChild(), valueFirst, valueLeafs);
+      DiGraph.DiGraphNode assignNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_WRITE_VARIABLE, tempName, varName));
 
+      flowGraph.connect(varNode, MyFlowGraph.Branch.MY_UNCOND, valueFirst);
+      for (Pair leaf : valueLeafs) {
+        flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), assignNode);
+      }
+
+      toNextNode = new Pair(assignNode, MyFlowGraph.Branch.MY_UNCOND);
+    } else if (varBlock.hasMoreThanOneChild()) {
+      throw new UnexpectedNode(varBlock);
+    } else {
+      toNextNode = new Pair(varNode, MyFlowGraph.Branch.MY_UNCOND);
     }
+
+    while ((varBlock = varBlock.getNext()) != null) {
+      varName = MyAbsValue.newString(varBlock.getString());
+      varNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_DECLARE_VARIABLE, varName));
+      flowGraph.connect(toNextNode.getNode(), toNextNode.getAnnotaion(), varNode);
+
+      if (varBlock.hasOneChild()) {
+        List<Pair> valueLeafs = new ArrayList<Pair>();
+        DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> valueFirst = null;
+        MyAbsValue tempName;
+
+        tempName = rebuild(varBlock.getFirstChild(), valueFirst, valueLeafs);
+        DiGraph.DiGraphNode assignNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.MY_WRITE_VARIABLE, tempName, varName));
+
+        flowGraph.connect(varNode, MyFlowGraph.Branch.MY_UNCOND, valueFirst);
+        for (Pair leaf : valueLeafs) {
+          flowGraph.connect(leaf.getNode(), leaf.getAnnotaion(), assignNode);
+        }
+
+        toNextNode = new Pair(assignNode, MyFlowGraph.Branch.MY_UNCOND);
+      } else if (varBlock.hasMoreThanOneChild()) {
+        throw new UnexpectedNode(varBlock);
+      } else {
+        toNextNode = new Pair(varNode, MyFlowGraph.Branch.MY_UNCOND);
+      }
+    }
+
+    leafs.add(toNextNode);
+
     return null;
   }
 

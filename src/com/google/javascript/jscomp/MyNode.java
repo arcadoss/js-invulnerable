@@ -29,10 +29,12 @@ public class MyNode {
     this.operands = operands;
   }
 
-  public MyNode(Type command, MyAbsValue operand) {
+  public MyNode(Type command, MyAbsValue... operands) {
     this.command = command;
     this.operands = new ArrayList<MyAbsValue>();
-    this.operands.add(operand);
+    for (MyAbsValue oper : operands) {
+      this.operands.add(oper);
+    }
   }
 
   public List<MyAbsValue> getOperands() {
