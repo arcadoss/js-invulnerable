@@ -50,30 +50,68 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
   }
 
-  public MyAbsValue rebuild(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> root, List<Pair> leafs) throws UnimplTransformEx, UnexpectedNode {
+  public MyAbsValue rebuild(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) throws UnimplTransformEx, UnexpectedNode {
     switch (entry.getType()) {
       case Token.IF:
-        return handleIf(entry, root, leafs);
+        return handleIf(entry, first, leafs);
       case Token.WHILE:
-        return handleWhile(entry, root, leafs);
+        return handleWhile(entry, first, leafs);
       case Token.DO:
-        return handleDo(entry, root, leafs);
+        return handleDo(entry, first, leafs);
+      case Token.FOR:
+        return handleFor(entry, first, leafs);
       case Token.SWITCH:
-        return handleSwitch(entry, root, leafs);
+        return handleSwitch(entry, first, leafs);
       case Token.SCRIPT:
       case Token.BLOCK:
-        return handleBlock(entry, root, leafs);
+        return handleBlock(entry, first, leafs);
       case Token.VAR:
-        return handleVar(entry, root, leafs);
+        return handleVar(entry, first, leafs);
       case Token.STRING:
-        return handleString(entry, root, leafs);
+        return handleString(entry, first, leafs);
       case Token.NUMBER:
-        return handleNumber(entry, root, leafs);
+        return handleNumber(entry, first, leafs);
+      case Token.EXPR_RESULT:
+        return handleExpression(entry, first, leafs);
+      case Token.ASSIGN:
+        return handleAssign(entry, first, leafs);
+      case Token.NAME:
+        return handleName(entry, first, leafs);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MyAbsValue handleFor(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
+    Node forBlock = entry.getFirstChild().getNext().getNext().getNext();
+
+    if (forBlock == null) {
+      return handleForIn(entry, first, leafs);
+    } else {
+      return handleForCstyle(entry, first, leafs);
+    }
+  }
+
+  private MyAbsValue handleForCstyle(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
+    return null;
+  }
+
+  private MyAbsValue handleForIn(Node entry, DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> first, List<Pair> leafs) {
+    return null;
+  }
+
+  private MyAbsValue handleAssign(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
+    return null;
+  }
+
+  private MyAbsValue handleExpression(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) throws UnimplTransformEx, UnexpectedNode {
+    if (entry.hasOneChild()) {
+      return rebuild(entry, first, leafs);
+    } else {
+      throw new UnimplTransformEx(entry);
+    }
   }
 
   private MyAbsValue handleNumber(Node entry, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> first, List<Pair> leafs) {
@@ -170,7 +208,6 @@ public class MyFlowGraphCreator implements CompilerPass {
         flowGraph.connect(prev.getNode(), prev.getAnnotaion(), currFirst);
       }
       prevLeafs = currLeafs;
-      // TODO: is it right?
       currFirst = null;
     }
     leafs.addAll(prevLeafs);
@@ -397,30 +434,6 @@ public class MyFlowGraphCreator implements CompilerPass {
     tempVarCounter += 1;
     return tempVarBase + tempVarCounter;
   }
-
-  private class Pair {
-    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node;
-    MyFlowGraph.Branch annotaion;
-
-    private Pair(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node) {
-      this.node = node;
-      this.annotaion = MyFlowGraph.Branch.MY_UNCOND;
-    }
-
-    private Pair(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node, MyFlowGraph.Branch annotaion) {
-      this.node = node;
-      this.annotaion = annotaion;
-    }
-
-    public DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> getNode() {
-      return node;
-    }
-
-    public MyFlowGraph.Branch getAnnotaion() {
-      return annotaion;
-    }
-  }
-
 
   private class UnexpectedNode extends Throwable {
     public UnexpectedNode(Node child) {
