@@ -25,6 +25,10 @@ if (7 > 2) {
   this["prop2"] = this["prop"]
 }
 
+if (q == w) {
+  w += 10
+}
+
 for (var i = 0; i < 10; ++i) {
   global /= i
 }
@@ -42,6 +46,7 @@ while (True) {
 }
 
 switch (global) {
+  case q:
   case 10:
     a = 2;
     break;
@@ -50,4 +55,19 @@ switch (global) {
     break;
   default:
     break;
+}
+
+with (global) {
+  a.b = 10;
+  a["c"] = 20;
+  a[1 + 3] = 30;
+}
+
+for (i in global.a) 
+  i += 10
+
+for (; ; global.b++) {
+}
+
+for (;;) {
 }
