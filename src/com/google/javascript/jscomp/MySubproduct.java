@@ -59,18 +59,18 @@ public class MySubproduct {
   }
 
   public void connectToFirst(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> preFirst, MyFlowGraph.Branch cond) {
-    graph.connect(preFirst, cond, this.first);
+    graph.connect(preFirst.getValue(), cond, this.first.getValue());
   }
 
   public void connectLeafsTo(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> postLeafs) {
     for (Pair leaf : leafs) {
-      graph.connect(leaf.getNode(), leaf.getAnnotaion(), postLeafs);
+      graph.connect(leaf.getNodeValue(), leaf.getAnnotaion(), postLeafs.getValue());
     }
   }
 
   public void connectLeafsTo(MySubproduct postLeafs) {
     for (Pair leaf : leafs) {
-      graph.connect(leaf.getNode(), leaf.getAnnotaion(), postLeafs.getFirst());
+      graph.connect(leaf.getNodeValue(), leaf.getAnnotaion(), postLeafs.getFirst().getValue());
     }
   }
 
@@ -192,8 +192,8 @@ public class MySubproduct {
       this.annotaion = annotaion;
     }
 
-    public DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> getNode() {
-      return node;
+    public MyNode getNodeValue() {
+      return node.getValue();
     }
 
     public MyFlowGraph.Branch getAnnotaion() {

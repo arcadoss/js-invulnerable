@@ -36,7 +36,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.flowGraph = new MyFlowGraph();
+    this.flowGraph = new MyFlowGraph<MyNode, MyFlowGraph.Branch>();
     this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
     this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
     this.tempVarCounter = 0;
@@ -107,7 +107,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     // TODO : should I add dead leaf here ?
 
     MySubproduct lastCont = continueable.getLast();
-    flowGraph.connect(nan, MyFlowGraph.Branch.UNCOND, lastCont.getFirst());
+    connect(nan, MyFlowGraph.Branch.UNCOND, lastCont.getFirst());
 
     return out;
   }
@@ -160,7 +160,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     return varName;
   }
 
-  private MySubproduct handleFor(Node entry) {
+  private MySubproduct handleFor(Node entry) throws UnimplTransformEx {
     Node forBlock = entry.getFirstChild().getNext().getNext().getNext();
 
     if (forBlock == null) {
@@ -170,21 +170,58 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
   }
 
-  private MySubproduct handleForCstyle(Node entry) {
-    return null;
+  private MySubproduct handleForCstyle(Node entry) throws UnimplTransformEx {
+    throw new UnimplTransformEx(entry);
   }
 
-  private MySubproduct handleForIn(Node entry) {
-    return null;
+  private MySubproduct handleForIn(Node entry) throws UnimplTransformEx {
+    throw new UnimplTransformEx(entry);
   }
 
-  private MySubproduct handleAssign(Node entry) {
-    return null;
+  private MySubproduct handleAssign(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node childBlock = entry.getFirstChild();
+    Node exprBlock = childBlock.getNext();
+
+    MySubproduct dest = null;
+    MySubproduct prop = null;
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct exprNode = readNameOrRebuild(exprBlock);
+
+    switch (childBlock.getType()) {
+      case Token.NAME:
+        dest = MySubproduct.newVarName(childBlock.getString());
+
+        out.setFirst(exprNode.getFirst());
+
+        DiGraph.DiGraphNode writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_VARIABLE, exprNode, dest));
+        exprNode.connectLeafsTo(writeNode);
+        out.addLeaf(writeNode);
+
+        break;
+      case Token.GETPROP:
+      case Token.GETELEM:
+        Node base = childBlock.getFirstChild();
+        Node index = base.getNext();
+        dest = readNameOrRebuild(base);
+        prop = rebuild(index);
+        dest.connectLeafsTo(prop);
+        out.setFirst(dest.getFirst());
+        writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_PROPERTY, dest, prop, exprNode));
+        prop.connectLeafsTo(exprNode);
+        exprNode.connectLeafsTo(writeNode);
+        out.addLeaf(writeNode);
+
+        break;
+      default:
+        throw new UnexpectedNode(entry);
+    }
+
+    return out;
   }
 
   private MySubproduct handleExpression(Node entry) throws UnimplTransformEx, UnexpectedNode {
     if (entry.hasOneChild()) {
-      return rebuild(entry);
+      return rebuild(entry.getFirstChild());
     } else {
       throw new UnimplTransformEx(entry);
     }
@@ -381,7 +418,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, condNode));
     condNode.connectLeafsTo(ifNode);
 
-    flowGraph.connect(ifNode, MyFlowGraph.Branch.TRUE, bodyNode.getFirst());
+    connect(ifNode, MyFlowGraph.Branch.TRUE, bodyNode.getFirst());
 
     out.setFirst(bodyNode.getFirst());
     out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
@@ -408,7 +445,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct bodyNode = rebuild(bodyBlock);
     bodyNode.connectLeafsTo(condNode);
 
-    flowGraph.connect(ifNode, MyFlowGraph.Branch.TRUE, bodyNode);
+    connect(ifNode, MyFlowGraph.Branch.TRUE, bodyNode.getFirst());
     out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
 
     return out;
@@ -428,12 +465,12 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct thenNode = rebuild(thenBlock);
     out.addLeaf(thenNode.getLeafs());
 
-    flowGraph.connect(ifNode, MyFlowGraph.Branch.TRUE, thenNode);
+    connect(ifNode, MyFlowGraph.Branch.TRUE, thenNode.getFirst());
 
     if (elseBlock != null) {
       MySubproduct elseNode = rebuild(elseBlock);
       out.addLeaf(elseNode.getLeafs());
-      flowGraph.connect(ifNode, MyFlowGraph.Branch.FALSE, elseNode);
+      connect(ifNode, MyFlowGraph.Branch.FALSE, elseNode.getFirst());
     } else {
       out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
     }
@@ -468,6 +505,12 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   public MyFlowGraph getFlowGraph() {
     return flowGraph;
+  }
+
+  private void connect(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> src,
+                       MyFlowGraph.Branch branch, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> dest) {
+    flowGraph.connect(src.getValue(), branch, dest.getValue());
+    return;
   }
 
   private class UnexpectedNode extends Throwable {
