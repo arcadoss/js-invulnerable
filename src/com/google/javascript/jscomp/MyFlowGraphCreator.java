@@ -92,11 +92,23 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleName(entry);
       case Token.GETPROP:
         return handleGetProperty(entry);
+      case Token.EMPTY:
+        return handleEmpty(entry);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MySubproduct handleEmpty(Node entry) {
+    MySubproduct out = MySubproduct.newBuffer();
+
+    DiGraph.DiGraphNode emptyNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
+    out.setFirst(emptyNode);
+    out.addLeaf(emptyNode);
+
+    return out;
   }
 
   private MySubproduct handleContinue(Node entry) {
@@ -160,7 +172,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     return varName;
   }
 
-  private MySubproduct handleFor(Node entry) throws UnimplTransformEx {
+  private MySubproduct handleFor(Node entry) throws UnimplTransformEx, UnexpectedNode {
     Node forBlock = entry.getFirstChild().getNext().getNext().getNext();
 
     if (forBlock == null) {
@@ -170,11 +182,37 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
   }
 
-  private MySubproduct handleForCstyle(Node entry) throws UnimplTransformEx {
-    throw new UnimplTransformEx(entry);
+  private MySubproduct handleForCstyle(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node varBlock = entry.getFirstChild();
+    Node condBlock = varBlock.getNext();
+    Node incBlock = condBlock.getNext();
+    Node exprBlock = incBlock.getNext();
+    MySubproduct out = MySubproduct.newBuffer();
+
+    MySubproduct varNode = readNameOrRebuild(varBlock);
+    MySubproduct condNode = readNameOrRebuild(condBlock);
+    MySubproduct incNode = rebuild(incBlock);
+
+    breakable.push(out);
+    continueable.push(condNode);
+    MySubproduct exprNode = rebuild(exprBlock);
+    continueable.pop();
+    breakable.pop();
+
+    varNode.connectLeafsTo(condNode);
+    out.setFirst(varNode.getFirst());
+    DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, condNode));
+    connect(ifNode, MyFlowGraph.Branch.TRUE, exprNode.getFirst());
+    out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
+    exprNode.connectLeafsTo(incNode);
+    exprNode.connectLeafsTo(condNode);
+
+    return out;
   }
 
   private MySubproduct handleForIn(Node entry) throws UnimplTransformEx {
+
+
     throw new UnimplTransformEx(entry);
   }
 
