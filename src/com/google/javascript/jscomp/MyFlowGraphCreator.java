@@ -94,11 +94,75 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleGetProperty(entry);
       case Token.EMPTY:
         return handleEmpty(entry);
+      case Token.WITH:
+        return handleWith(entry);
+      case Token.CALL:
+        return handleCall(entry);
+      case Token.FUNCTION:
+        return handleFunction(entry);
+      case Token.RETURN:
+        return handleReturn(entry);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MySubproduct handleReturn(Node entry) throws UnimplTransformEx {
+    throw new UnimplTransformEx(entry);
+  }
+
+  private MySubproduct handleFunction(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node nameBlock = entry.getFirstChild();
+    Node paramBlock = nameBlock.getNext();
+    Node expBlock = paramBlock.getNext();
+
+    MySubproduct out = MySubproduct.newBuffer();
+
+    MySubproduct nameNode = readNameOrRebuild(nameBlock);
+    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    list.add(nameNode);
+    for (Node param : paramBlock.children()) {
+      MySubproduct name = readNameOrRebuild(param);
+      list.add(name);
+    }
+    DiGraph.DiGraphNode funEnter = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.ENTRY, list));
+    DiGraph.DiGraphNode funExit = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT));
+    DiGraph.DiGraphNode funExcept = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
+
+    MySubproduct expNode = rebuild(expBlock);
+
+    out.setFirst(funEnter);
+    connect(funEnter, MyFlowGraph.Branch.UNCOND, expNode.getFirst());
+    expNode.connectLeafsTo(funExit);
+
+
+
+
+    return out;
+  }
+
+  private MySubproduct handleCall(Node entry) throws UnimplTransformEx {
+    throw new UnimplTransformEx(entry);
+  }
+
+  private MySubproduct handleWith(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node varBlock = entry.getFirstChild();
+    Node exprBlock = varBlock.getNext();
+
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct varNode = readNameOrRebuild(varBlock);
+    MySubproduct exprNode = rebuild(exprBlock);
+    DiGraph.DiGraphNode withNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WITH, varNode));
+
+    out.setFirst(varNode.getFirst());
+    varNode.connectLeafsTo(withNode);
+    connect(withNode, MyFlowGraph.Branch.TRUE, exprNode.getFirst());
+    out.addLeaf(withNode, MyFlowGraph.Branch.FALSE);
+    exprNode.connectLeafsTo(withNode);
+
+    return out;
   }
 
   private MySubproduct handleEmpty(Node entry) {
