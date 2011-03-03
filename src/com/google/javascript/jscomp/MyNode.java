@@ -121,10 +121,10 @@ public class MyNode {
     // (x) represent entries of catch blocks.
     CATCH,
 
-    // represent for in loop
+    // (v1, v2) represent for in loop. Here v1 contains base object, v2 is temprorary variable for iterating
     FOR_IN,
 
-    // represent with statement
+    // (v) represent with statement
     WITH,
 
     // represent binary operations

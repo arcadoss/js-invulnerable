@@ -26,7 +26,7 @@ public class MyFlowGraphCreator implements CompilerPass {
    * continueable represent a list of subgraphs. List's tail getFirst() corresponds to
    * node that control flow reach after CONTINUE instruction
    */
-  LinkedList<MySubproduct> continueable;
+  LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> continueable;
   /**
    * labels represent map 'Label name' -> 'Node where to jump'
    */
@@ -41,7 +41,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
     this.tempVarCounter = 0;
     this.breakable = new LinkedList<MySubproduct>();
-    this.continueable = new LinkedList<MySubproduct>();
+    this.continueable = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
 
     MySubproduct.setGraph(flowGraph);
   }
@@ -118,8 +118,8 @@ public class MyFlowGraphCreator implements CompilerPass {
     out.setFirst(nan);
     // TODO : should I add dead leaf here ?
 
-    MySubproduct lastCont = continueable.getLast();
-    connect(nan, MyFlowGraph.Branch.UNCOND, lastCont.getFirst());
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> lastCont = continueable.getLast();
+    connect(nan, MyFlowGraph.Branch.UNCOND, lastCont);
 
     return out;
   }
@@ -194,7 +194,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct incNode = rebuild(incBlock);
 
     breakable.push(out);
-    continueable.push(condNode);
+    continueable.push(condNode.getFirst());
     MySubproduct exprNode = rebuild(exprBlock);
     continueable.pop();
     breakable.pop();
@@ -210,10 +210,70 @@ public class MyFlowGraphCreator implements CompilerPass {
     return out;
   }
 
-  private MySubproduct handleForIn(Node entry) throws UnimplTransformEx {
+  private MySubproduct handleForIn(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node nameBlock = entry.getFirstChild();
+    Node objBlock = nameBlock.getNext();
+    Node exprBlock = objBlock.getNext();
 
+    MySubproduct objNode = readNameOrRebuild(objBlock);
+    MySubproduct iterVar = MySubproduct.newTemp();
+    MySubproduct out = MySubproduct.newBuffer();
 
-    throw new UnimplTransformEx(entry);
+    breakable.push(out);
+
+    switch (nameBlock.getType()) {
+      case Token.NAME:
+        MySubproduct nameNode = MySubproduct.newVarName(nameBlock.getString());
+
+        DiGraph.DiGraphNode forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, objNode, iterVar));
+        DiGraph.DiGraphNode writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_VARIABLE, iterVar, nameNode));
+
+        out.setFirst(objNode.getFirst());
+        objNode.connectLeafsTo(forinNode);
+        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
+        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
+
+        continueable.push(forinNode);
+        MySubproduct exprNode = rebuild(exprBlock);
+
+        connect(writeNode, MyFlowGraph.Branch.UNCOND, exprNode.getFirst());
+        exprNode.connectLeafsTo(forinNode);
+
+        break;
+      case Token.GETPROP:
+      case Token.GETELEM:
+        Node base = nameBlock.getFirstChild();
+        Node index = base.getNext();
+
+        MySubproduct dest = readNameOrRebuild(base);
+        MySubproduct prop = rebuild(index);
+
+        forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, objNode, iterVar));
+        writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_PROPERTY, dest, prop, iterVar));
+
+        // TODO check operations order
+        out.setFirst(dest.getFirst());
+        dest.connectLeafsTo(prop);
+        prop.connectLeafsTo(objNode);
+        objNode.connectLeafsTo(forinNode);
+        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
+        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
+
+        continueable.push(forinNode);
+        exprNode = rebuild(exprBlock);
+
+        connect(writeNode, MyFlowGraph.Branch.UNCOND, exprNode.getFirst());
+        exprNode.connectLeafsTo(forinNode);
+
+        break;
+      default:
+        throw new UnexpectedNode(entry);
+    }
+
+    continueable.pop();
+    breakable.pop();
+
+    return out;
   }
 
   private MySubproduct handleAssign(Node entry) throws UnimplTransformEx, UnexpectedNode {
@@ -449,7 +509,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct condNode = readNameOrRebuild(condBlock);
 
     breakable.push(out);
-    continueable.push(condNode);
+    continueable.push(condNode.getFirst());
 
     MySubproduct bodyNode = rebuild(bodyBlock);
     bodyNode.connectLeafsTo(condNode);
@@ -475,7 +535,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct condNode = readNameOrRebuild(condBlock);
     out.setFirst(condNode.getFirst());
     breakable.add(out);
-    continueable.add(condNode);
+    continueable.add(condNode.getFirst());
 
     DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, condNode));
     condNode.connectLeafsTo(ifNode);
