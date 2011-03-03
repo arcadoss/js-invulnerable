@@ -109,8 +109,17 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
-  private MySubproduct handleReturn(Node entry) throws UnimplTransformEx {
-    throw new UnimplTransformEx(entry);
+  private MySubproduct handleReturn(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    if (entry.getFirstChild().getNext() != null)
+      throw new UnexpectedNode(entry);
+
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct retValue = readNameOrRebuild(entry.getFirstChild());
+    DiGraph.DiGraphNode retNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.RETURN, retValue));
+    out.setFirst(retNode);
+    out.addLeaf(retNode);
+
+    return out;
   }
 
   private MySubproduct handleFunction(Node entry) throws UnimplTransformEx, UnexpectedNode {
@@ -129,6 +138,8 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
     DiGraph.DiGraphNode funEnter = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.ENTRY, list));
     DiGraph.DiGraphNode funExit = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT));
+
+    // TODO add exception support
     DiGraph.DiGraphNode funExcept = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
 
     MySubproduct expNode = rebuild(expBlock);
@@ -136,9 +147,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     out.setFirst(funEnter);
     connect(funEnter, MyFlowGraph.Branch.UNCOND, expNode.getFirst());
     expNode.connectLeafsTo(funExit);
-
-
-
+    out.addLeaf(funEnter);
 
     return out;
   }
