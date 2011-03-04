@@ -152,8 +152,20 @@ public class MyFlowGraphCreator implements CompilerPass {
     return out;
   }
 
-  private MySubproduct handleCall(Node entry) throws UnimplTransformEx {
-    throw new UnimplTransformEx(entry);
+  private MySubproduct handleCall(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    for (Node child : entry.children()) {
+      list.add(readNameOrRebuild(child));
+    }
+
+    MySubproduct retVal = MySubproduct.newTemp();
+    DiGraph.DiGraphNode callNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CALL, list));
+    DiGraph.DiGraphNode afterCallNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_CALL, retVal));
+    connect(callNode, MyFlowGraph.Branch.UNCOND, afterCallNode);
+    retVal.setFirst(callNode);
+    retVal.addLeaf(afterCallNode);
+
+    return retVal;
   }
 
   private MySubproduct handleWith(Node entry) throws UnimplTransformEx, UnexpectedNode {
