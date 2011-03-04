@@ -140,7 +140,7 @@ public class MyNode {
     GE,
 
     // represent unary operations
-    MY_OP_UNAR;
+    NEG;
 
   }
 

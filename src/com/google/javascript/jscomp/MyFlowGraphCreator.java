@@ -102,11 +102,26 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleFunction(entry);
       case Token.RETURN:
         return handleReturn(entry);
+      case Token.NEG:
+        return handleNeg(entry);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MySubproduct handleNeg(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node expr = entry.getFirstChild();
+
+    MySubproduct out = MySubproduct.newTemp();
+    MySubproduct value = readNameOrRebuild(expr);
+    DiGraph.DiGraphNode negNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NEG, value, out));
+    value.connectLeafsTo(negNode);
+    out.setFirst(value.getFirst());
+    out.addLeaf(negNode);
+
+    return out;
   }
 
   private MySubproduct handleReturn(Node entry) throws UnimplTransformEx, UnexpectedNode {
