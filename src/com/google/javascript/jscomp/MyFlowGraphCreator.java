@@ -102,8 +102,60 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleFunction(entry);
       case Token.RETURN:
         return handleReturn(entry);
+
+      // unary operations
       case Token.NEG:
-        return handleNeg(entry);
+        return handleUnOp(entry, MyNode.Type.NEG);
+      case Token.POS:
+        return handleUnOp(entry, MyNode.Type.POS);
+      case Token.BITNOT:
+        return handleUnOp(entry, MyNode.Type.BITNOT);
+      case Token.NOT:
+        return handleUnOp(entry, MyNode.Type.NOT);
+
+      // binary operations
+      case Token.BITOR:
+        return handleBinOp(entry, MyNode.Type.BITOR);
+      case Token.BITXOR:
+        return handleBinOp(entry, MyNode.Type.BITXOR);
+      case Token.BITAND:
+        return handleBinOp(entry, MyNode.Type.BITAND);
+      case Token.AND:
+        return handleBinOp(entry, MyNode.Type.AND);
+      case Token.OR:
+        return handleBinOp(entry, MyNode.Type.OR);
+      case Token.EQ:
+        return handleBinOp(entry, MyNode.Type.EQ);
+      case Token.NE:
+        return handleBinOp(entry, MyNode.Type.NE);
+      case Token.SHEQ:
+        return handleBinOp(entry, MyNode.Type.SHEQ);
+      case Token.SHNE:
+        return handleBinOp(entry, MyNode.Type.SHNE);
+      case Token.LT:
+        return handleBinOp(entry, MyNode.Type.LT);
+      case Token.LE:
+        return handleBinOp(entry, MyNode.Type.LE);
+      case Token.GT:
+        return handleBinOp(entry, MyNode.Type.GT);
+      case Token.GE:
+        return handleBinOp(entry, MyNode.Type.GE);
+      case Token.LSH:
+        return handleBinOp(entry, MyNode.Type.LSH);
+      case Token.RSH:
+        return handleBinOp(entry, MyNode.Type.RSH);
+      case Token.URSH:
+        return handleBinOp(entry, MyNode.Type.URSH);
+      case Token.ADD:
+        return handleBinOp(entry, MyNode.Type.ADD);
+      case Token.SUB:
+        return handleBinOp(entry, MyNode.Type.SUB);
+      case Token.MUL:
+        return handleBinOp(entry, MyNode.Type.MUL);
+      case Token.DIV:
+        return handleBinOp(entry, MyNode.Type.DIV);
+      case Token.MOD:
+        return handleBinOp(entry, MyNode.Type.MOD);
 
       default:
         throw new UnimplTransformEx(entry);
@@ -111,15 +163,32 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
-  private MySubproduct handleNeg(Node entry) throws UnimplTransformEx, UnexpectedNode {
+  private MySubproduct handleBinOp(Node entry, MyNode.Type binOp) throws UnimplTransformEx, UnexpectedNode {
+    Node first = entry.getFirstChild();
+    Node second = first.getNext();
+
+    MySubproduct out = MySubproduct.newTemp();
+    MySubproduct value1 = readNameOrRebuild(first);
+    MySubproduct value2 = readNameOrRebuild(second);
+
+    DiGraph.DiGraphNode opNode = flowGraph.createDirectedGraphNode(new MyNode(binOp, value1, value2, out));
+    value1.connectLeafsTo(value2);
+    value2.connectLeafsTo(opNode);
+    out.setFirst(value1.getFirst());
+    out.addLeaf(opNode);
+
+    return out;
+  }
+
+  private MySubproduct handleUnOp(Node entry, MyNode.Type unOp) throws UnimplTransformEx, UnexpectedNode {
     Node expr = entry.getFirstChild();
 
     MySubproduct out = MySubproduct.newTemp();
     MySubproduct value = readNameOrRebuild(expr);
-    DiGraph.DiGraphNode negNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NEG, value, out));
-    value.connectLeafsTo(negNode);
+    DiGraph.DiGraphNode opNode = flowGraph.createDirectedGraphNode(new MyNode(unOp, value, out));
+    value.connectLeafsTo(opNode);
     out.setFirst(value.getFirst());
-    out.addLeaf(negNode);
+    out.addLeaf(opNode);
 
     return out;
   }

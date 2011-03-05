@@ -129,18 +129,16 @@ public class MyNode {
 
     // represent binary operations
     // (v1, v2, v3) v3 = v1 BIN_OP v2
-    BITOR,
-    BITXOR,
-    BITAND,
-    EQ,
-    NE,
-    LT,
-    LE,
-    GT,
-    GE,
+    BITOR, BITXOR, BITAND,
+    AND, OR,
+    LSH, RSH, URSH, ADD, SUB, MUL, DIV, MOD,
+    EQ, NE,
+    SHNE, SHEQ,
+    LT, LE, GT, GE,
 
     // represent unary operations
-    NEG;
+    // (v1, v2) v2 = UNAR_OP v1
+    NEG, POS, BITNOT, NOT;
 
   }
 
