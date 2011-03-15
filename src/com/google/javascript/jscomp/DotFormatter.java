@@ -39,7 +39,6 @@ import java.util.List;
  * <code>System.out.println(new DotFormatter().toDot(<i>node</i>));</code>
  * <p>This class is <b>not</b> thread safe and should not be used without proper
  * external synchronization.</p>
- *
  */
 public class DotFormatter {
   private static final String INDENT = "  ";
@@ -59,7 +58,9 @@ public class DotFormatter {
 
   private final boolean printAnnotations;
 
-  /** For Testing Only */
+  /**
+   * For Testing Only
+   */
   private DotFormatter() {
     this.builder = new StringBuilder();
     this.cfg = null;
@@ -67,7 +68,7 @@ public class DotFormatter {
   }
 
   private DotFormatter(Node n, ControlFlowGraph<Node> cfg,
-      Appendable builder, boolean printAnnotations) throws IOException {
+                       Appendable builder, boolean printAnnotations) throws IOException {
     this.cfg = cfg;
     this.builder = builder;
     this.printAnnotations = printAnnotations;
@@ -79,23 +80,25 @@ public class DotFormatter {
 
   /**
    * Converts an AST to dot representation.
+   *
    * @param n the root of the AST described in the dot formatted string
    * @return the dot representation of the AST
    */
-  public static String toDot(Node n) throws IOException  {
+  public static String toDot(Node n) throws IOException {
     return toDot(n, null);
   }
 
   /**
    * Converts an AST to dot representation.
-   * @param n the root of the AST described in the dot formatted string
-   * @param inCFG Control Flow Graph.
+   *
+   * @param n                the root of the AST described in the dot formatted string
+   * @param inCFG            Control Flow Graph.
    * @param printAnnotations print annotations.
    * @return the dot representation of the AST
    */
   static String toDot(
       Node n, ControlFlowGraph<Node> inCFG, boolean printAnnotations)
-      throws IOException  {
+      throws IOException {
     StringBuilder builder = new StringBuilder();
     new DotFormatter(n, inCFG, builder, printAnnotations);
     return builder.toString();
@@ -103,12 +106,13 @@ public class DotFormatter {
 
   /**
    * Converts an AST to dot representation.
-   * @param n the root of the AST described in the dot formatted string
+   *
+   * @param n     the root of the AST described in the dot formatted string
    * @param inCFG Control Flow Graph.
    * @return the dot representation of the AST
    */
   static String toDot(Node n, ControlFlowGraph<Node> inCFG)
-      throws IOException  {
+      throws IOException {
     StringBuilder builder = new StringBuilder();
     new DotFormatter(n, inCFG, builder, false);
     return builder.toString();
@@ -116,12 +120,13 @@ public class DotFormatter {
 
   /**
    * Converts an AST to dot representation and appends it to the given buffer.
-   * @param n the root of the AST described in the dot formatted string
-   * @param inCFG Control Flow Graph.
+   *
+   * @param n       the root of the AST described in the dot formatted string
+   * @param inCFG   Control Flow Graph.
    * @param builder A place to dump the graph.
    */
   static void appendDot(Node n, ControlFlowGraph<Node> inCFG,
-      Appendable builder) throws IOException {
+                        Appendable builder) throws IOException {
     new DotFormatter(n, inCFG, builder, false);
   }
 
@@ -138,7 +143,7 @@ public class DotFormatter {
 
     // edges
     for (Node child = parent.getFirstChild(); child != null;
-        child = child.getNext()) {
+         child = child.getNext()) {
       int keyChild = key(child);
       builder.append(INDENT);
       builder.append(formatNodeName(keyParent));
@@ -152,7 +157,7 @@ public class DotFormatter {
     // Flow Edges
     if (cfg != null && cfg.hasNode(parent)) {
       List<DiGraphEdge<Node, Branch>> outEdges =
-        cfg.getOutEdges(parent);
+          cfg.getOutEdges(parent);
       String[] edgeList = new String[outEdges.size()];
       for (int i = 0; i < edgeList.length; i++) {
         DiGraphEdge<Node, ControlFlowGraph.Branch> edge = outEdges.get(i);
@@ -167,15 +172,15 @@ public class DotFormatter {
         }
 
         edgeList[i] = formatNodeName(keyParent) + ARROW + toNode + " [label=\""
-          + edge.getValue().toString() + "\", " + "fontcolor=\"red\", " +
-          "weight=0.01, color=\"red\"];\n";
+            + edge.getValue().toString() + "\", " + "fontcolor=\"red\", " +
+            "weight=0.01, color=\"red\"];\n";
       }
 
       Arrays.sort(edgeList);
 
       for (int i = 0; i < edgeList.length; i++) {
-          builder.append(INDENT);
-          builder.append(edgeList[i]);
+        builder.append(INDENT);
+        builder.append(edgeList[i]);
       }
     }
   }
@@ -242,7 +247,7 @@ public class DotFormatter {
    * @return A string in Dot format that presents the graph.
    */
   public static String toDot(GraphvizGraph graph) {
-    StringBuilder builder = new StringBuilder ();
+    StringBuilder builder = new StringBuilder();
     builder.append(graph.isDirected() ? "digraph" : "graph");
     builder.append(INDENT);
     builder.append(graph.getName());

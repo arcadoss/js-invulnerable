@@ -1,5 +1,6 @@
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.graph.GraphvizGraph;
 import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
 
 /**
@@ -7,15 +8,18 @@ import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
  * Date: 14.02.11
  * Time: 20:11
  */
-//public class MyFlowGraph<T, N> extends LinkedDirectedGraph<T, N> {
 public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch> {
-//public class MyFlowGraph extends LinkedDirectedGraph {
   public MyFlowGraph() {
     super(false, true);
   }
 
   protected MyFlowGraph(boolean useNodeAnnotations, boolean useEdgeAnnotations) {
     super(useNodeAnnotations, useEdgeAnnotations);
+  }
+
+  @Override
+  public String getName() {
+    return "MyFG";
   }
 
   public static enum Branch {

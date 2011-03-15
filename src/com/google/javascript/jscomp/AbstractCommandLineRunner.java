@@ -648,7 +648,8 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
         return 1;
       } else {
         MyFlowGraph fg = compiler.computeFlowGraph();
-        String analysis = DotFormatter.toDot(fg);
+        MyFormatter formatter = new MyFormatter(fg);
+        String analysis = formatter.toDot();
         out.append(analysis);
         out.append('\n');
         return 0;
