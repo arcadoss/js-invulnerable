@@ -32,7 +32,6 @@ public class MySubproduct {
    */
   List<Pair> leafs;
 
-
   private MySubproduct() {
     first = null;
     leafs = new ArrayList<Pair>();
@@ -176,6 +175,15 @@ public class MySubproduct {
 
   public static MySubproduct newBuffer() {
     return new MySubproduct();
+  }
+
+  public static MySubproduct newNan() {
+    MySubproduct out = MySubproduct.newBuffer();
+
+    DiGraph.DiGraphNode emptyNode = graph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
+    out.setFirst(emptyNode);
+    out.addLeaf(emptyNode);
+    return  out;
   }
 
   private class Pair {

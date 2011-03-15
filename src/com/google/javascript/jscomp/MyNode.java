@@ -14,19 +14,42 @@ public class MyNode {
   Type command;
   List<MySubproduct> operands;
 
+//  public boolean isThrowable() {
+//    return throwable;
+//  }
+//
+//  public void setThrowable(boolean throwable) {
+//    this.throwable = throwable;
+//  }
+//
+//  boolean throwable;
+
   public MyNode(Type command) {
     this.command = command;
     this.operands = null;
+
+//    if (command == Type.CALL || command == Type.THROW) {
+//      this.throwable = true;
+//    } else {
+//      this.throwable = false;
+//    }
   }
 
   public MyNode() {
     this.command = Type.PSEUDO_NODE;
     this.operands = null;
+//    this.throwable = false;
   }
 
   public MyNode(Type command, List<MySubproduct> operands) {
     this.command = command;
     this.operands = operands;
+
+//    if (command == Type.CALL || command == Type.THROW) {
+//      this.throwable = true;
+//    } else {
+//      this.throwable = false;
+//    }
   }
 
   public MyNode(Type command, MySubproduct... operands) {
@@ -35,6 +58,12 @@ public class MyNode {
     for (MySubproduct oper : operands) {
       this.operands.add(oper);
     }
+
+//    if (command == Type.CALL || command == Type.THROW) {
+//      this.throwable = true;
+//    } else {
+//      this.throwable = false;
+//    }
   }
 
   public List<MySubproduct> getOperands() {
@@ -138,7 +167,7 @@ public class MyNode {
 
     // represent unary operations
     // (v1, v2) v2 = UNAR_OP v1
-    NEG, POS, BITNOT, NOT;
+    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK;
 
   }
 

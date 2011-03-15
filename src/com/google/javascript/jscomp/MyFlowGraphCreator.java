@@ -17,6 +17,8 @@ public class MyFlowGraphCreator implements CompilerPass {
   MyFlowGraph flowGraph;
   DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoRoot;
   DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoExit;
+  DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> exceptExit;
+
   /**
    * breakable represent a list of subgraphs. List's tail getLeafs() contains all leafs,
    * that should be created after subgraph processing.
@@ -28,20 +30,27 @@ public class MyFlowGraphCreator implements CompilerPass {
    */
   LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> continueable;
   /**
+   * represent list of nodes that will receive control flow after exception
+   */
+  LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> catchers;
+  /**
    * labels represent map 'Label name' -> 'Node where to jump'
    */
-  Map labels = new HashMap<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
-
-  int tempVarCounter;
+  Map<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>> labels;
 
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.flowGraph = new MyFlowGraph<MyNode, MyFlowGraph.Branch>();
+    this.flowGraph = new MyFlowGraph();
     this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
     this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
-    this.tempVarCounter = 0;
+    this.exceptExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
+
     this.breakable = new LinkedList<MySubproduct>();
     this.continueable = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
+    this.catchers = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
+    this.labels = new HashMap<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
+
+    this.catchers.push(exceptExit);
 
     MySubproduct.setGraph(flowGraph);
   }
@@ -61,6 +70,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   public MySubproduct rebuild(Node entry) throws UnimplTransformEx, UnexpectedNode {
     switch (entry.getType()) {
+      // control flow modifiers
       case Token.IF:
         return handleIf(entry);
       case Token.WHILE:
@@ -75,27 +85,32 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleBreak(entry);
       case Token.CONTINUE:
         return handleContinue(entry);
+
+      case Token.EMPTY:
+        return handleEmpty(entry);
       case Token.SCRIPT:
       case Token.BLOCK:
         return handleBlock(entry);
+      case Token.EXPR_RESULT:
+        return handleExpression(entry);
+
       case Token.VAR:
         return handleVar(entry);
       case Token.STRING:
         return handleString(entry);
       case Token.NUMBER:
         return handleNumber(entry);
-      case Token.EXPR_RESULT:
-        return handleExpression(entry);
-      case Token.ASSIGN:
-        return handleAssign(entry);
       case Token.NAME:
         return handleName(entry);
+
       case Token.GETPROP:
         return handleGetProperty(entry);
-      case Token.EMPTY:
-        return handleEmpty(entry);
       case Token.WITH:
         return handleWith(entry);
+
+      case Token.ASSIGN:
+        return handleAssign(entry);
+
       case Token.CALL:
         return handleCall(entry);
       case Token.FUNCTION:
@@ -156,11 +171,179 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleBinOp(entry, MyNode.Type.DIV);
       case Token.MOD:
         return handleBinOp(entry, MyNode.Type.MOD);
+      case Token.INSTANCEOF:
+        return handleBinOp(entry, MyNode.Type.INSTANCEOF);
+
+      // ternary operations
+      case Token.HOOK:
+        return handleHook(entry);
+
+      case Token.THIS:
+        return handleReadKeyword(entry, "this");
+      case Token.NULL:
+        return handleReadKeyword(entry, "null");
+      case Token.TRUE:
+        return handleReadKeyword(entry, "true");
+      case Token.FALSE:
+        return handleReadKeyword(entry, "false");
+
+      case Token.TRY:
+        return handleTry(entry);
+      case Token.THROW:
+        return handleThrow(entry);
+      case Token.CATCH:
+        return handleCatch(entry);
 
       default:
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MySubproduct handleCatch(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node nameBlock = entry.getFirstChild();
+    Node exprBlock = nameBlock.getNext();
+
+    assert nameBlock.getType() == Token.NAME;
+
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct name = MySubproduct.newString(nameBlock.getString());
+    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> catchNode
+        = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CATCH, name));
+    MySubproduct exprNode = rebuild(exprBlock);
+    exprNode.connectToFirst(catchNode);
+
+    out.setFirst(catchNode);
+    out.addLeaf(exprNode.getLeafs());
+
+    return out;
+  }
+
+  private MySubproduct handleThrow(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    MySubproduct out = null;
+
+    Node exprBlock = entry.getFirstChild();
+    MySubproduct exprNode = rebuild(exprBlock);
+    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> throwNode
+        = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.THROW, exprNode));
+
+    exprNode.connectLeafsTo(throwNode);
+    out.setFirst(exprNode.getFirst());
+
+    connect(throwNode, MyFlowGraph.Branch.EXEPT, catchers.getLast());
+
+    // TODO: should I add dead branch here
+
+    return out;
+  }
+
+  private MySubproduct handleReadKeyword(Node entry, String keywordName) {
+    MySubproduct out = MySubproduct.newTemp();
+    MySubproduct keyword = MySubproduct.newString(keywordName);
+
+    DiGraph.DiGraphNode readNode = flowGraph.createDirectedGraphNode(
+        new MyNode(MyNode.Type.READ_VARIABLE, keyword, out));
+    out.setFirst(readNode);
+    out.addLeaf(readNode);
+
+    return out;
+  }
+
+  // Warning: current parsers doesn't support catch (e if ...)
+  // TODO: modify function handler
+  private MySubproduct handleTry(Node entry) throws UnexpectedNode, UnimplTransformEx {
+    Node exprBlock = entry.getFirstChild();
+    Node catchBlock = exprBlock.getNext();
+    Node finallyBlock = catchBlock.getNext();
+
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct finallyNode = null;
+
+    MySubproduct catchNode;
+
+    // swap catch and try if there is no catch, but only try
+    if (catchBlock.hasChildren() && catchBlock.getFirstChild().getType() != Token.CATCH
+        || !catchBlock.hasChildren() && finallyBlock == null)
+    {
+      Node temp = catchBlock;
+      catchBlock = finallyBlock;
+      finallyBlock = temp;
+    }
+
+    // handle finally block
+    if (finallyBlock != null && finallyBlock.hasChildren()) {
+      finallyNode = rebuild(finallyBlock);
+      catchers.push(finallyNode.getFirst()); // catch block may throw exception, put finally block first
+    }
+
+    // handle catch block
+    if (!catchBlock.hasChildren()) {
+      catchNode = MySubproduct.newNan();
+    } else {
+      Node cBlock = catchBlock.getFirstChild();
+      if (cBlock == null || cBlock.getType() != Token.CATCH) {
+        throw new UnexpectedNode(cBlock);
+      }
+      catchNode = rebuild(cBlock);
+    }
+
+    catchers.push(catchNode.getFirst());
+
+    MySubproduct exprNode = rebuild(exprBlock);
+
+    out.setFirst(exprNode.getFirst());
+    if (finallyNode != null) {
+      exprNode.connectLeafsTo(finallyNode);
+      catchNode.connectLeafsTo(finallyNode);
+      out.addLeaf(finallyNode.getLeafs());
+    } else {
+      out.addLeaf(exprNode.getLeafs());
+      // TODO: Am I wrong here ?
+      out.addLeaf(catchNode.getLeafs());
+    }
+
+    catchers.pop(); // pop catchNode
+    catchers.pop(); // pop finallyNode
+
+    return out;
+  }
+
+  private MySubproduct handleBlock(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node block = entry.getFirstChild();
+
+    MySubproduct firstBlock = rebuild(block);
+    MySubproduct prevBlock = firstBlock;
+
+    while ((block = block.getNext()) != null) {
+      MySubproduct currBlock = rebuild(block);
+      prevBlock.connectLeafsTo(currBlock.getFirst());
+      prevBlock = currBlock;
+    }
+
+    prevBlock.setFirst(firstBlock.getFirst());
+    return prevBlock;
+  }
+
+  private MySubproduct handleHook(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node cond = entry.getFirstChild();
+    Node exprOnTrue = cond.getNext();
+    Node exprOnFalse = exprOnTrue.getNext();
+
+    // TODO: should I add ternary operator ?
+    MySubproduct condValue = readNameOrRebuild(cond);
+    MySubproduct trueExpNode = readNameOrRebuild(exprOnTrue);
+    MySubproduct falseExpNode = readNameOrRebuild(exprOnFalse);
+
+    MySubproduct out = MySubproduct.newTemp();
+    DiGraph.DiGraphNode hookNode = flowGraph.createDirectedGraphNode(
+        new MyNode(MyNode.Type.HOOK, condValue, trueExpNode, falseExpNode, out));
+    out.setFirst(condValue.getFirst());
+    condValue.connectLeafsTo(trueExpNode);
+    trueExpNode.connectLeafsTo(falseExpNode);
+    falseExpNode.connectLeafsTo(hookNode);
+    out.addLeaf(hookNode);
+
+    return out;
   }
 
   private MySubproduct handleBinOp(Node entry, MyNode.Type binOp) throws UnimplTransformEx, UnexpectedNode {
@@ -222,9 +405,8 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
     DiGraph.DiGraphNode funEnter = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.ENTRY, list));
     DiGraph.DiGraphNode funExit = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT));
-
-    // TODO add exception support
     DiGraph.DiGraphNode funExcept = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
+    catchers.push(funExcept);
 
     MySubproduct expNode = rebuild(expBlock);
 
@@ -232,6 +414,8 @@ public class MyFlowGraphCreator implements CompilerPass {
     connect(funEnter, MyFlowGraph.Branch.UNCOND, expNode.getFirst());
     expNode.connectLeafsTo(funExit);
     out.addLeaf(funEnter);
+
+    catchers.pop();
 
     return out;
   }
@@ -271,12 +455,7 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MySubproduct handleEmpty(Node entry) {
-    MySubproduct out = MySubproduct.newBuffer();
-
-    DiGraph.DiGraphNode emptyNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
-    out.setFirst(emptyNode);
-    out.addLeaf(emptyNode);
-
+    MySubproduct out = MySubproduct.newNan();
     return out;
   }
 
@@ -569,22 +748,6 @@ public class MyFlowGraphCreator implements CompilerPass {
     }
 
     return toNextNode;
-  }
-
-  private MySubproduct handleBlock(Node entry) throws UnimplTransformEx, UnexpectedNode {
-    Node block = entry.getFirstChild();
-
-    MySubproduct firstBlock = rebuild(block);
-    MySubproduct prevBlock = firstBlock;
-
-    while ((block = block.getNext()) != null) {
-      MySubproduct currBlock = rebuild(block);
-      prevBlock.connectLeafsTo(currBlock.getFirst());
-      prevBlock = currBlock;
-    }
-
-    prevBlock.setFirst(firstBlock.getFirst());
-    return prevBlock;
   }
 
   private MySubproduct handleSwitch(Node entry) throws UnimplTransformEx, UnexpectedNode {
