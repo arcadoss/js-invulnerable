@@ -108,8 +108,31 @@ public class MyFlowGraphCreator implements CompilerPass {
       case Token.WITH:
         return handleWith(entry);
 
+      // assignment operations
       case Token.ASSIGN:
         return handleAssign(entry);
+      case Token.ASSIGN_BITOR:
+        return handleAssignWith(entry, MyNode.Type.BITOR);
+      case Token.ASSIGN_BITXOR:
+        return handleAssignWith(entry, MyNode.Type.BITXOR);
+      case Token.ASSIGN_BITAND:
+        return handleAssignWith(entry, MyNode.Type.BITAND);
+      case Token.ASSIGN_LSH:
+        return handleAssignWith(entry, MyNode.Type.LSH);
+      case Token.ASSIGN_RSH:
+        return handleAssignWith(entry, MyNode.Type.RSH);
+      case Token.ASSIGN_URSH:
+        return handleAssignWith(entry, MyNode.Type.URSH);
+      case Token.ASSIGN_ADD:
+        return handleAssignWith(entry, MyNode.Type.ADD);
+      case Token.ASSIGN_SUB:
+        return handleAssignWith(entry, MyNode.Type.SUB);
+      case Token.ASSIGN_MUL:
+        return handleAssignWith(entry, MyNode.Type.MUL);
+      case Token.ASSIGN_DIV:
+        return handleAssignWith(entry, MyNode.Type.DIV);
+      case Token.ASSIGN_MOD:
+        return handleAssignWith(entry, MyNode.Type.MOD);
 
       case Token.CALL:
         return handleCall(entry);
@@ -178,6 +201,7 @@ public class MyFlowGraphCreator implements CompilerPass {
       case Token.HOOK:
         return handleHook(entry);
 
+      // special keywords
       case Token.THIS:
         return handleReadKeyword(entry, "this");
       case Token.NULL:
@@ -187,6 +211,7 @@ public class MyFlowGraphCreator implements CompilerPass {
       case Token.FALSE:
         return handleReadKeyword(entry, "false");
 
+      // exceptions
       case Token.TRY:
         return handleTry(entry);
       case Token.THROW:
@@ -200,6 +225,60 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
+  private MySubproduct handleAssignWith(Node entry, MyNode.Type binOp) throws UnimplTransformEx, UnexpectedNode {
+    Node childBlock = entry.getFirstChild();
+    Node exprBlock = childBlock.getNext();
+
+    MySubproduct out = MySubproduct.newBuffer();
+    MySubproduct rightVal = readNameOrRebuild(exprBlock);
+
+    switch (childBlock.getType()) {
+      case Token.NAME:
+        MySubproduct opResult = MySubproduct.newTemp();
+        MySubproduct leftVal = readNameOrRebuild(childBlock);
+        MySubproduct dest = MySubproduct.newVarName(childBlock.getString());
+
+        DiGraph.DiGraphNode binOpNode = flowGraph.createDirectedGraphNode(new MyNode(binOp, leftVal, rightVal, opResult));
+        DiGraph.DiGraphNode writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_VARIABLE, opResult, dest));
+
+        out.setFirst(rightVal.getFirst());
+        rightVal.connectLeafsTo(leftVal);
+        leftVal.connectLeafsTo(binOpNode);
+        connect(binOpNode, MyFlowGraph.Branch.UNCOND, writeNode);
+        out.addLeaf(writeNode);
+
+        break;
+      case Token.GETPROP:
+      case Token.GETELEM:
+        Node base = childBlock.getFirstChild();
+        Node index = base.getNext();
+
+        MySubproduct prop = rebuild(index);
+        dest = readNameOrRebuild(base);
+
+        leftVal = MySubproduct.newTemp();
+        opResult = MySubproduct.newTemp();
+        DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> readNode
+            = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.READ_PROPERTY, dest, prop, leftVal));
+        binOpNode = flowGraph.createDirectedGraphNode(new MyNode(binOp, leftVal, rightVal, opResult));
+        writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_PROPERTY, dest, prop, opResult));
+
+        out.setFirst(dest.getFirst());
+        dest.connectLeafsTo(prop);
+        prop.connectLeafsTo(rightVal);
+        rightVal.connectLeafsTo(readNode);
+        connect(readNode, MyFlowGraph.Branch.UNCOND, binOpNode);
+        connect(binOpNode, MyFlowGraph.Branch.UNCOND, writeNode);
+        out.addLeaf(writeNode);
+
+        break;
+      default:
+        throw new UnexpectedNode(entry);
+    }
+
+    return out;
+  }
+
   private MySubproduct handleCatch(Node entry) throws UnimplTransformEx, UnexpectedNode {
     Node nameBlock = entry.getFirstChild();
     Node exprBlock = nameBlock.getNext();
@@ -208,7 +287,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     MySubproduct out = MySubproduct.newBuffer();
     MySubproduct name = MySubproduct.newString(nameBlock.getString());
-    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> catchNode
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> catchNode
         = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CATCH, name));
     MySubproduct exprNode = rebuild(exprBlock);
     exprNode.connectToFirst(catchNode);
@@ -224,7 +303,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     Node exprBlock = entry.getFirstChild();
     MySubproduct exprNode = rebuild(exprBlock);
-    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> throwNode
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> throwNode
         = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.THROW, exprNode));
 
     exprNode.connectLeafsTo(throwNode);
@@ -263,8 +342,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     // swap catch and try if there is no catch, but only try
     if (catchBlock.hasChildren() && catchBlock.getFirstChild().getType() != Token.CATCH
-        || !catchBlock.hasChildren() && finallyBlock == null)
-    {
+        || !catchBlock.hasChildren() && finallyBlock == null) {
       Node temp = catchBlock;
       catchBlock = finallyBlock;
       finallyBlock = temp;
