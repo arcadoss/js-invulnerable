@@ -430,6 +430,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     DiGraph.DiGraphNode callNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CALL, list));
     DiGraph.DiGraphNode afterCallNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_CALL, retVal));
     connect(callNode, MyFlowGraph.Branch.UNCOND, afterCallNode);
+    connect(callNode, MyFlowGraph.Branch.EXEPT, catchers.getLast());
     retVal.setFirst(callNode);
     retVal.addLeaf(afterCallNode);
 
