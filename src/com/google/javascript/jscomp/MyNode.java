@@ -1,5 +1,6 @@
 package com.google.javascript.jscomp;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,66 +13,57 @@ import java.util.List;
  */
 public class MyNode {
   Type command;
-  List<MySubproduct> operands;
+  List<MyValuable> operands;
 
-//  public boolean isThrowable() {
-//    return throwable;
-//  }
-//
-//  public void setThrowable(boolean throwable) {
-//    this.throwable = throwable;
-//  }
-//
-//  boolean throwable;
+  @Override
+  public String toString() {
+    Appendable builder = new StringBuilder();
+
+    try {
+      builder.append(command.toString());
+      if (!operands.isEmpty()) {
+        builder.append("(");
+        for (MyValuable oper : operands) {
+          builder.append(oper.toString());
+        }
+        builder.append(")");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    return builder.toString();
+  }
 
   public MyNode(Type command) {
     this.command = command;
     this.operands = null;
-
-//    if (command == Type.CALL || command == Type.THROW) {
-//      this.throwable = true;
-//    } else {
-//      this.throwable = false;
-//    }
   }
 
   public MyNode() {
     this.command = Type.PSEUDO_NODE;
     this.operands = null;
-//    this.throwable = false;
   }
 
-  public MyNode(Type command, List<MySubproduct> operands) {
+  public MyNode(Type command, List<MyValuable> operands) {
     this.command = command;
     this.operands = operands;
-
-//    if (command == Type.CALL || command == Type.THROW) {
-//      this.throwable = true;
-//    } else {
-//      this.throwable = false;
-//    }
   }
 
   public MyNode(Type command, MySubproduct... operands) {
     this.command = command;
-    this.operands = new ArrayList<MySubproduct>();
+    this.operands = new ArrayList<MyValuable>();
     for (MySubproduct oper : operands) {
       this.operands.add(oper);
     }
-
-//    if (command == Type.CALL || command == Type.THROW) {
-//      this.throwable = true;
-//    } else {
-//      this.throwable = false;
-//    }
   }
 
-  public List<MySubproduct> getOperands() {
+  public List<MyValuable> getOperands() {
     return operands;
   }
 
   public void setOperands(MySubproduct[] arguments) {
-    operands = new ArrayList<MySubproduct>();
+    operands = new ArrayList<MyValuable>();
 
     for (MySubproduct op : arguments) {
       operands.add(op);
@@ -167,7 +159,7 @@ public class MyNode {
 
     // represent unary operations
     // (v1, v2) v2 = UNAR_OP v1
-    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK;
+    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK, TYPEOF;
 
   }
 

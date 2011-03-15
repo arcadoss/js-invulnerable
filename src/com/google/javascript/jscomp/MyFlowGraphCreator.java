@@ -150,6 +150,8 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleUnOp(entry, MyNode.Type.BITNOT);
       case Token.NOT:
         return handleUnOp(entry, MyNode.Type.NOT);
+      case Token.TYPEOF:
+        return handleUnOp(entry, MyNode.Type.TYPEOF);
 
       // binary operations
       case Token.BITOR:
@@ -196,6 +198,7 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleBinOp(entry, MyNode.Type.MOD);
       case Token.INSTANCEOF:
         return handleBinOp(entry, MyNode.Type.INSTANCEOF);
+
 
       // ternary operations
       case Token.HOOK:
@@ -475,7 +478,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct out = MySubproduct.newBuffer();
 
     MySubproduct nameNode = readNameOrRebuild(nameBlock);
-    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    List<MyValuable> list = new ArrayList<MyValuable>();
     list.add(nameNode);
     for (Node param : paramBlock.children()) {
       MySubproduct name = readNameOrRebuild(param);
@@ -499,7 +502,7 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MySubproduct handleCall(Node entry) throws UnimplTransformEx, UnexpectedNode {
-    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    List<MyValuable> list = new ArrayList<MyValuable>();
     for (Node child : entry.children()) {
       list.add(readNameOrRebuild(child));
     }
