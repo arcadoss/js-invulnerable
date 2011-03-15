@@ -105,6 +105,8 @@ public class MyFlowGraphCreator implements CompilerPass {
 
       case Token.GETPROP:
         return handleGetProperty(entry);
+      case Token.GETELEM:
+        return handleGetElem(entry);
       case Token.WITH:
         return handleWith(entry);
 
@@ -228,6 +230,23 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
+  private MySubproduct handleGetElem(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    Node objBlock = entry.getFirstChild();
+    Node indexBlock = objBlock.getNext();
+
+    MySubproduct object = readNameOrRebuild(objBlock);
+    MySubproduct indexNode = rebuild(indexBlock);
+
+    object.connectLeafsTo(indexNode.getFirst());
+
+    MySubproduct property = MySubproduct.newTemp();
+    DiGraph.DiGraphNode readNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.READ_PROPERTY, object, indexNode, property));
+    property.addLeaf(readNode);
+    property.setFirst(object.getFirst());
+
+    return property;
+  }
+
   private MySubproduct handleAssignWith(Node entry, MyNode.Type binOp) throws UnimplTransformEx, UnexpectedNode {
     Node childBlock = entry.getFirstChild();
     Node exprBlock = childBlock.getNext();
@@ -332,7 +351,6 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   // Warning: current parsers doesn't support catch (e if ...)
-  // TODO: modify function handler
   private MySubproduct handleTry(Node entry) throws UnexpectedNode, UnimplTransformEx {
     Node exprBlock = entry.getFirstChild();
     Node catchBlock = exprBlock.getNext();
