@@ -20,13 +20,13 @@ public class MyFormatter {
   Appendable builder;
 
   public MyFormatter(MyFlowGraph graph) {
+    this.builder = new StringBuilder();
     this.graph = graph;
     this.assignments = new HashMap<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>, Integer>();
     this.keyCount = 0;
   }
 
   public String toDot() throws IOException {
-    StringBuilder builder = new StringBuilder();
     builder.append("digraph");
     builder.append(INDENT);
     builder.append(graph.getName());
@@ -53,7 +53,9 @@ public class MyFormatter {
         builder.append(ARROW);
         builder.append(dest);
         builder.append(" [label=\"");
-        builder.append(edge.getValue().toString());
+        if (edge.getValue() != MyFlowGraph.Branch.UNCOND) {
+          builder.append(edge.getValue().toString());
+        }
         builder.append("\"];\n");
 
       }
@@ -77,7 +79,8 @@ public class MyFormatter {
     builder.append(formatNodeName(key));
     builder.append(" [label=\"");
     builder.append(node.getValue().toString());
-    builder.append("\" color=\"white\"];\n");
+    builder.append("\"];\n");
+//    builder.append("\" color=\"white\"];\n");
   }
   return key;
 }

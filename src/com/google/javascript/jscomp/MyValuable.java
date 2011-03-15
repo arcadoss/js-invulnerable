@@ -16,7 +16,13 @@ public abstract class MyValuable {
     this.type = type;
   }
 
+  @Override
+  public String toString() {
+    return getValue().toString();
+  }
+
   public static enum Type {
-    STR, NMB, NONE
+    STR, NMB, NONE;
+
   }
 }

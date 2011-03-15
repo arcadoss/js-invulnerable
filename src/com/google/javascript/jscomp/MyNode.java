@@ -3,6 +3,7 @@ package com.google.javascript.jscomp;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 
 /**
  * Created by IntelliJ IDEA.
@@ -21,10 +22,14 @@ public class MyNode {
 
     try {
       builder.append(command.toString());
-      if (!operands.isEmpty()) {
+      if (operands != null && !operands.isEmpty()) {
         builder.append("(");
-        for (MyValuable oper : operands) {
-          builder.append(oper.toString());
+        ListIterator<MyValuable> iter = operands.listIterator();
+        while (iter.hasNext()) {
+          builder.append(iter.next().toString());
+          if (iter.hasNext()) {
+            builder.append(", ");
+          }
         }
         builder.append(")");
       }
