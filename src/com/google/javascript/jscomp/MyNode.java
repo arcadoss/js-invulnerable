@@ -50,9 +50,12 @@ public class MyNode {
     this.operands = null;
   }
 
-  public MyNode(Type command, List<MyValuable> operands) {
+  public MyNode(Type command, List<MySubproduct> operands) {
     this.command = command;
-    this.operands = operands;
+    this.operands = new ArrayList<MyValuable>(operands.size());
+    for (MySubproduct oper : operands) {
+      this.operands.add(oper.getNodeRes());
+    }
   }
 
   public MyNode(Type command, MySubproduct... operands) {
@@ -161,10 +164,14 @@ public class MyNode {
     EQ, NE,
     SHNE, SHEQ,
     LT, LE, GT, GE,
+    IN,
 
     // represent unary operations
     // (v1, v2) v2 = UNAR_OP v1
-    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK, TYPEOF, INC, DEC;
+    NEG, POS, BITNOT, NOT, INSTANCEOF, TYPEOF, INC, DEC,
+
+    // represent ternary optaion
+    HOOK;
 
   }
 

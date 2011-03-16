@@ -3,6 +3,7 @@ package com.google.javascript.jscomp;
 import com.google.javascript.jscomp.graph.DiGraph;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.sun.org.apache.xalan.internal.xsltc.dom.NthIterator;
 
 import java.util.*;
 
@@ -109,6 +110,8 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleGetElem(entry);
       case Token.WITH:
         return handleWith(entry);
+      case Token.NEW:
+        return handleNew(entry);
 
       // assignment operations
       case Token.ASSIGN:
@@ -204,7 +207,8 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleBinOp(entry, MyNode.Type.MOD);
       case Token.INSTANCEOF:
         return handleBinOp(entry, MyNode.Type.INSTANCEOF);
-
+      case Token.IN:
+        return handleBinOp(entry, MyNode.Type.IN);
 
       // ternary operations
       case Token.HOOK:
@@ -232,6 +236,42 @@ public class MyFlowGraphCreator implements CompilerPass {
         throw new UnimplTransformEx(entry);
     }
 
+  }
+
+  private MySubproduct handleNew(Node entry) throws UnimplTransformEx, UnexpectedNode {
+    MySubproduct result = MySubproduct.newTemp();
+
+    assert entry.getFirstChild().getType() == Token.NAME;
+
+    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    for (Node child : entry.children()) {
+      MySubproduct param = readNameOrRebuild(child);
+      list.add(param);
+    }
+
+    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> constNode
+        = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CONSTRUCT, list));
+    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> afterCall
+        = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_CALL, result));
+
+    connect(list);
+    result.setFirst(list.get(0).getFirst());
+    list.get(list.size() - 1).connectLeafsTo(constNode);
+    connect(constNode, MyFlowGraph.Branch.UNCOND, afterCall);
+    result.addLeaf(afterCall);
+
+    return result;
+  }
+
+  private void connect(List<MySubproduct> list) {
+    Iterator<MySubproduct> iter = list.iterator();
+    MySubproduct prev = iter.next();
+    MySubproduct curr;
+
+    while (iter.hasNext()) {
+      curr = iter.next();
+      prev.connectLeafsTo(curr);
+    }
   }
 
   private MySubproduct handleIncDec(Node entry, MyNode.Type op) throws UnimplTransformEx, UnexpectedNode {
@@ -574,12 +614,13 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct out = MySubproduct.newBuffer();
 
     MySubproduct nameNode = readNameOrRebuild(nameBlock);
-    List<MyValuable> list = new ArrayList<MyValuable>();
-    list.add(nameNode.getNodeRes());
+    List<MySubproduct> list = new ArrayList<MySubproduct>();
+    list.add(nameNode);
     for (Node param : paramBlock.children()) {
-      MySubproduct name = readNameOrRebuild(param);
-      list.add(name.getNodeRes());
+      MySubproduct name = rebuild(param);
+      list.add(name);
     }
+
     DiGraph.DiGraphNode funEnter = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.ENTRY, list));
     DiGraph.DiGraphNode funExit = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT));
     DiGraph.DiGraphNode funExcept = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
@@ -598,17 +639,20 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MySubproduct handleCall(Node entry) throws UnimplTransformEx, UnexpectedNode {
-    List<MyValuable> list = new ArrayList<MyValuable>();
+    List<MySubproduct> list = new ArrayList<MySubproduct>();
     for (Node child : entry.children()) {
-      list.add(readNameOrRebuild(child).getNodeRes());
+      list.add(readNameOrRebuild(child));
     }
 
     MySubproduct retVal = MySubproduct.newTemp();
     DiGraph.DiGraphNode callNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CALL, list));
     DiGraph.DiGraphNode afterCallNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_CALL, retVal));
+
+    connect(list);
+    retVal.setFirst(list.get(0).getFirst());
+    list.get(list.size() - 1).connectLeafsTo(callNode);
     connect(callNode, MyFlowGraph.Branch.UNCOND, afterCallNode);
     connect(callNode, MyFlowGraph.Branch.EXEPT, catchers.getLast());
-    retVal.setFirst(callNode);
     retVal.addLeaf(afterCallNode);
 
     return retVal;
