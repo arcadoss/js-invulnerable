@@ -23,6 +23,9 @@ public abstract class MyValuable {
 
   public static enum Type {
     STR, NMB, NONE;
+  }
 
+  public boolean isVarName() {
+    return false;
   }
 }

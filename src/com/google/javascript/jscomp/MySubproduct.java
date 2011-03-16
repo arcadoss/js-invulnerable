@@ -13,14 +13,16 @@ import java.util.List;
  *         The aim is to create flow graph using reduced set of nodes. This achieved with recursieve AST traversal.
  *         Objects of this class contains node visist results.
  */
-public abstract class MySubproduct extends MyValuable {
+public class MySubproduct {
   private static int tempVarCounter = 0;
-  private static final String tempVarBase = "temp ";
+  private static final String tempVarBase = "tmp_";
 
   /**
    * Reference to the currently creating flow graph
    */
   private static MyFlowGraph graph;
+
+  MyValuable nodeRes;
 
   /**
    * Root of the created subgraph.
@@ -33,15 +35,24 @@ public abstract class MySubproduct extends MyValuable {
   List<Pair> leafs;
 
   private MySubproduct() {
-    first = null;
-    leafs = new ArrayList<Pair>();
+    this.nodeRes = null;
+    this.first = null;
+    this.leafs = new ArrayList<Pair>();
+  }
+
+  public MyValuable getNodeRes() {
+    return nodeRes;
+  }
+
+  public void setNodeRes(MyValuable nodeRes) {
+    this.nodeRes = nodeRes;
   }
 
   /**
    * This class represents name of temprorary variable, which contains
    * value of program's vairable.
    */
-  protected static class VarValue extends MySubproduct {
+  protected static class VarValue extends MyValuable {
     String value;
 
     private VarValue(String value) {
@@ -57,7 +68,7 @@ public abstract class MySubproduct extends MyValuable {
   /**
    * This class represents program's variable name that could be obtained from NAME AST node.
    */
-  protected static class VarName extends MySubproduct {
+  protected static class VarName extends MyValuable {
     String value;
 
     @Override
@@ -78,7 +89,7 @@ public abstract class MySubproduct extends MyValuable {
   /**
    * This class represents constant string that could be obtained from STRING AST node
    */
-  protected static class StrConst extends MySubproduct {
+  protected static class StrConst extends MyValuable {
     String value;
 
     public StrConst(String value) {
@@ -94,7 +105,7 @@ public abstract class MySubproduct extends MyValuable {
   /**
    * This class represent constant number that could be obtained from NUMBER AST node
    */
-  protected static class NmbConst extends MySubproduct {
+  protected static class NmbConst extends MyValuable {
     double value;
 
     public NmbConst(double value) {
@@ -107,7 +118,7 @@ public abstract class MySubproduct extends MyValuable {
     }
   }
 
-  protected static class NodeBuffer extends MySubproduct {
+  protected static class NodeBuffer extends MyValuable {
 
     public NodeBuffer() {
       this.type = MyValuable.Type.NONE;
@@ -118,27 +129,42 @@ public abstract class MySubproduct extends MyValuable {
     }
   }
 
+  public static MySubproduct copyVal(MySubproduct from) {
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(from.getNodeRes());
+    return out;
+  }
 
   public static MySubproduct newNumber(double value) {
-    return new NmbConst(value);
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(new NmbConst(value));
+    return out;
   }
 
   public static MySubproduct newString(String value) {
-    return new StrConst(value);
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(new StrConst(value));
+    return out;
   }
 
   public static MySubproduct newTemp() {
     tempVarCounter += 1;
     String newName = tempVarBase + tempVarCounter;
-    return new VarValue(newName);
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(new VarValue(newName));
+    return out;
   }
 
   public static MySubproduct newVarName(String name) {
-    return new VarName(name);
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(new VarName(name));
+    return out;
   }
 
   public static MySubproduct newBuffer() {
-    return new NodeBuffer();
+    MySubproduct out = new MySubproduct();
+    out.setNodeRes(new NodeBuffer());
+    return out;
   }
 
   public static MySubproduct newNan() {
@@ -176,10 +202,6 @@ public abstract class MySubproduct extends MyValuable {
 
   public static void setGraph(MyFlowGraph graph) {
     MySubproduct.graph = graph;
-  }
-
-  public boolean isVarName() {
-    return false;
   }
 
   public void addLeaf(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node, MyFlowGraph.Branch annotaion) {

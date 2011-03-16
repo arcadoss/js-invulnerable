@@ -59,7 +59,7 @@ public class MyNode {
     this.command = command;
     this.operands = new ArrayList<MyValuable>();
     for (MySubproduct oper : operands) {
-      this.operands.add(oper);
+      this.operands.add(oper.getNodeRes());
     }
   }
 
@@ -71,7 +71,7 @@ public class MyNode {
     operands = new ArrayList<MyValuable>();
 
     for (MySubproduct op : arguments) {
-      operands.add(op);
+      operands.add(op.getNodeRes());
     }
   }
 
@@ -164,7 +164,7 @@ public class MyNode {
 
     // represent unary operations
     // (v1, v2) v2 = UNAR_OP v1
-    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK, TYPEOF;
+    NEG, POS, BITNOT, NOT, INSTANCEOF, HOOK, TYPEOF, INC, DEC;
 
   }
 
