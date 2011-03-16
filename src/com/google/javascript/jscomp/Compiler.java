@@ -1561,12 +1561,12 @@ public class Compiler extends AbstractCompiler {
     return cfa.getCfg();
   }
 
-  MyFlowGraph computeFlowGraph() {
+  MyFlowGraph computeMyFlowGraph() {
     logger.info("Computing Analyser's Flow Graph");
-    Tracer tracer = newTracer("computeFlowGraph");
+    Tracer tracer = newTracer("computeMyFlowGraph");
     MyFlowGraphCreator cfa = new MyFlowGraphCreator(this);
     process(cfa);
-    stopTracer(tracer, "computeFlowGraph");
+    stopTracer(tracer, "computeMyFlowGraph");
     return cfa.getFlowGraph();
   }
 

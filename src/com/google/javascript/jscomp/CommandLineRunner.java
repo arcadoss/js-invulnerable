@@ -109,10 +109,10 @@ public class CommandLineRunner extends
         + " tree and exits")
     private boolean print_ast = false;
 
-    @Option(name = "--print_flowgraph",
+    @Option(name = "--print_myflowgraph",
         handler = BooleanOptionHandler.class,
         usage = "Prints a dot file with JS flow graph")
-    private boolean print_flowgraph = false;
+    private boolean print_myflowgraph = false;
 
     @Option(name = "--print_pass_graph",
         handler = BooleanOptionHandler.class,
@@ -512,7 +512,7 @@ public class CommandLineRunner extends
           .setPrintTree(flags.print_tree)
           .setComputePhaseOrdering(flags.compute_phase_ordering)
           .setPrintAst(flags.print_ast)
-          .setPrintFlowGraph(flags.print_flowgraph)
+          .setPrintMyFlowGraph(flags.print_myflowgraph)
           .setPrintPassGraph(flags.print_pass_graph)
           .setJscompDevMode(flags.jscomp_dev_mode)
           .setLoggingLevel(flags.logging_level)

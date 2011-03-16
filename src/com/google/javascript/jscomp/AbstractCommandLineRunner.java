@@ -643,11 +643,11 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
       }
     }
 
-    if (config.printFlowGraph) {
+    if (config.printMyFlowGraph) {
       if (compiler.getRoot() == null) {
         return 1;
       } else {
-        MyFlowGraph fg = compiler.computeFlowGraph();
+        MyFlowGraph fg = compiler.computeMyFlowGraph();
         MyFormatter formatter = new MyFormatter(fg);
         String analysis = formatter.toDot();
         out.append(analysis);
@@ -1246,10 +1246,10 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
       return this;
     }
 
-    private boolean printFlowGraph = false;
+    private boolean printMyFlowGraph = false;
 
-    CommandLineConfig setPrintFlowGraph(boolean printFlowGraph) {
-      this.printFlowGraph = printFlowGraph;
+    CommandLineConfig setPrintMyFlowGraph(boolean printMyFlowGraph) {
+      this.printMyFlowGraph = printMyFlowGraph;
       return this;
     }
 
