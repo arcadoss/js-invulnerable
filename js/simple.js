@@ -41,10 +41,6 @@ do {
   global += 1
 } while (global < 0)
 
-while (True) {
-  global += 1
-}
-
 switch (global) {
   case q:
   case 10:
@@ -71,3 +67,31 @@ for (; ; global.b++) {
 
 for (;;) {
 }
+
+var output = '';
+
+try {
+  fun1(10, 3, 400);
+} catch (e ) {
+  output = 'array';
+} finally {
+  output = 'fin';
+}
+
+try {
+  fun1(10, 3, 400);
+} finally {
+  output = 'fin';
+}
+
+try {
+  throw new Date();
+  fun1(10, 3, 400);
+} catch (e) {
+  output = 'fin';
+}
+
+var t = r++;
+var y = --r;
+this.t++;
+++this["y"];
