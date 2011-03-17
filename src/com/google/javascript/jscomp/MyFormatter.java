@@ -6,9 +6,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 
+import com.google.javascript.jscomp.MyNode.Type;
+
 /**
-* @author arcadoss
-*/
+ * @author arcadoss
+ */
 public class MyFormatter {
   private static final String INDENT = "  ";
   private static final String ARROW = " -> ";
@@ -41,11 +43,11 @@ public class MyFormatter {
     }
 
     for (DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node : nodes) {
-      List<DiGraph.DiGraphEdge<MyNode,MyFlowGraph.Branch>> outEdges = node.getOutEdges();
+      List<DiGraph.DiGraphEdge<MyNode, MyFlowGraph.Branch>> outEdges = node.getOutEdges();
       String source = formatNodeName(getKeyAndAppend(node));
 
-      for (DiGraph.DiGraphEdge<MyNode,MyFlowGraph.Branch> edge : outEdges) {
-        DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> destNode = edge.getDestination();
+      for (DiGraph.DiGraphEdge<MyNode, MyFlowGraph.Branch> edge : outEdges) {
+        DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> destNode = edge.getDestination();
         String dest = formatNodeName(getKeyAndAppend(destNode));
 
         builder.append(INDENT);
@@ -71,18 +73,52 @@ public class MyFormatter {
   }
 
   int getKeyAndAppend(DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> node) throws IOException {
-  Integer key = assignments.get(node);
-  if (key == null) {
-    key = keyCount++;
-    assignments.put(node, key);
-    builder.append(INDENT);
-    builder.append(formatNodeName(key));
-    builder.append(" [label=\"");
-    builder.append(node.getValue().toString());
-    builder.append("\"];\n");
+    Integer key = assignments.get(node);
+    if (key == null) {
+      key = keyCount++;
+      assignments.put(node, key);
+      builder.append(INDENT);
+      builder.append(formatNodeName(key));
+      builder.append(" [label=\"");
+      builder.append(node.getValue().toString());
+      builder.append(color(node.getValue()));
+      builder.append("];\n");
+
 //    builder.append("\" color=\"white\"];\n");
+    }
+    return key;
   }
-  return key;
-}
+
+  String color(MyNode node) {
+    final String preamble = "\" color=";
+    final String afterword = ", style=filled";
+    String color;
+
+    switch (node.getCommand()) {
+      case PSEUDO_EXIT:
+      case PSEUDO_ROOT:
+      case EXIT_EXC:
+        color = "navajowhite1";
+        break;
+      case EXIT:
+      case ENTRY:
+        color = "lightcoral";
+        break;
+      case IF:
+        color = "darkolivegreen1";
+        break;
+      case CALL:
+      case AFTER_CALL:
+        color = "violet";
+        break;
+      case CONSTRUCT:
+        color = "plum1";
+        break;
+      default:
+        return "\"";
+    }
+
+    return preamble + color + afterword;
+  }
 
 }
