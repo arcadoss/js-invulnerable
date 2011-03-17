@@ -41,19 +41,19 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.entry = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
-    this.implicitReturn = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
-    this.exceptExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
-    this.flowGraph = new MyFlowGraph(entry, implicitReturn, exceptExit);
+    this.flowGraph = new MyFlowGraph();
+    this.entry = this.flowGraph.getEntry();
+    this.implicitReturn = this.flowGraph.getImplicitReturn();
+    this.exceptExit = this.flowGraph.getExceptExit();
 
     this.breakable = new LinkedList<MySubproduct>();
     this.continueable = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
     this.catchers = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
     this.labels = new HashMap<String, DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();
 
-    this.catchers.push(exceptExit);
-
+    this.catchers.addLast(exceptExit);
     MySubproduct.setGraph(flowGraph);
+    connect(exceptExit, MyFlowGraph.Branch.UNCOND, implicitReturn);
   }
 
   public void process(Node externs, Node root) {
@@ -277,6 +277,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     while (iter.hasNext()) {
       curr = iter.next();
       prev.connectLeafsTo(curr);
+      prev = curr;
     }
   }
 
@@ -493,7 +494,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     // handle finally block
     if (finallyBlock != null && finallyBlock.hasChildren()) {
       finallyNode = rebuild(finallyBlock);
-      catchers.push(finallyNode.getFirst()); // catch block may throw exception, put finally block first
+      catchers.addLast(finallyNode.getFirst()); // catch block may throw exception, put finally block first
     }
 
     // handle catch block
@@ -507,7 +508,7 @@ public class MyFlowGraphCreator implements CompilerPass {
       catchNode = rebuild(cBlock);
     }
 
-    catchers.push(catchNode.getFirst());
+    catchers.addLast(catchNode.getFirst());
 
     MySubproduct exprNode = rebuild(exprBlock);
 
@@ -522,8 +523,8 @@ public class MyFlowGraphCreator implements CompilerPass {
       out.addLeaf(catchNode.getLeafs());
     }
 
-    catchers.pop(); // pop catchNode
-    catchers.pop(); // pop finallyNode
+    catchers.removeLast(); // pop catchNode
+    catchers.removeLast(); // pop finallyNode
 
     return out;
   }
@@ -609,7 +610,9 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct out = MySubproduct.newBuffer();
     MySubproduct retValue = readNameOrRebuild(entry.getFirstChild());
     DiGraph.DiGraphNode retNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.RETURN, retValue));
-    out.setFirst(retNode);
+
+    out.setFirst(retValue.getFirst());
+    retValue.connectLeafsTo(retNode);
     out.addLeaf(retNode);
 
     return out;
@@ -622,7 +625,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     MySubproduct out = MySubproduct.newBuffer();
 
-    MySubproduct nameNode = readNameOrRebuild(nameBlock);
+    MySubproduct nameNode = rebuild(nameBlock);
     List<MySubproduct> list = new ArrayList<MySubproduct>();
     list.add(nameNode);
     for (Node param : paramBlock.children()) {
@@ -633,16 +636,17 @@ public class MyFlowGraphCreator implements CompilerPass {
     DiGraph.DiGraphNode funEnter = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.ENTRY, list));
     DiGraph.DiGraphNode funExit = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT));
     DiGraph.DiGraphNode funExcept = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
-    catchers.push(funExcept);
+    catchers.addLast(funExcept);
 
     MySubproduct expNode = rebuild(expBlock);
 
     out.setFirst(funEnter);
     connect(funEnter, MyFlowGraph.Branch.UNCOND, expNode.getFirst());
+    connect(funExcept, MyFlowGraph.Branch.UNCOND, funExit);
     expNode.connectLeafsTo(funExit);
-    out.addLeaf(funEnter);
+    out.addLeaf(funExit);
 
-    catchers.pop();
+    catchers.removeLast();
 
     return out;
   }
@@ -773,11 +777,11 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct condNode = readNameOrRebuild(condBlock);
     MySubproduct incNode = rebuild(incBlock);
 
-    breakable.push(out);
-    continueable.push(condNode.getFirst());
+    breakable.addLast(out);
+    continueable.addLast(condNode.getFirst());
     MySubproduct exprNode = rebuild(exprBlock);
-    continueable.pop();
-    breakable.pop();
+    continueable.removeLast();
+    breakable.removeLast();
 
     out.setFirst(varNode.getFirst());
     varNode.connectLeafsTo(condNode);
@@ -800,7 +804,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct iterVar = MySubproduct.newTemp();
     MySubproduct out = MySubproduct.newBuffer();
 
-    breakable.push(out);
+    breakable.addLast(out);
 
     // TODO: for (var bla-bla in bla) will fail here
     switch (nameBlock.getType()) {
@@ -810,7 +814,7 @@ public class MyFlowGraphCreator implements CompilerPass {
         DiGraph.DiGraphNode forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, iterVar, objNode));
         DiGraph.DiGraphNode writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_VARIABLE, iterVar, nameNode));
 
-        continueable.push(forinNode);
+        continueable.addLast(forinNode);
         MySubproduct exprNode = rebuild(exprBlock);
 
         out.setFirst(objNode.getFirst());
@@ -833,7 +837,7 @@ public class MyFlowGraphCreator implements CompilerPass {
         forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, iterVar, objNode));
         writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_PROPERTY, dest, prop, iterVar));
 
-        continueable.push(forinNode);
+        continueable.addLast(forinNode);
         exprNode = rebuild(exprBlock);
 
         out.setFirst(dest.getFirst());
@@ -851,8 +855,8 @@ public class MyFlowGraphCreator implements CompilerPass {
         throw new UnexpectedNode(entry);
     }
 
-    continueable.pop();
-    breakable.pop();
+    continueable.removeLast();
+    breakable.removeLast();
 
     return out;
   }
@@ -991,7 +995,7 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     MySubproduct switchVar = readNameOrRebuild(variableBlock);
     out.setFirst(switchVar.getFirst());
-    breakable.push(out);
+    breakable.addLast(out);
 
     switch (child.getType()) {
       case Token.CASE:
@@ -999,20 +1003,20 @@ public class MyFlowGraphCreator implements CompilerPass {
         Node exprBlock = condBlock.getNext();
 
         MySubproduct caseVal = readNameOrRebuild(condBlock);
-        switchVar.connectLeafsTo(caseVal);
-
         MySubproduct cmpRes = MySubproduct.newTemp();
+
         DiGraph.DiGraphNode eqNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EQ, switchVar, caseVal, cmpRes));
-        caseVal.connectLeafsTo(eqNode);
-
-        DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, caseVal));
+        DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, cmpRes));
         MySubproduct exprNode = rebuild(exprBlock);
-        exprNode.connectToFirst(ifNode, MyFlowGraph.Branch.TRUE);
 
+        switchVar.connectLeafsTo(caseVal);
+        caseVal.connectLeafsTo(eqNode);
+        connect(eqNode, MyFlowGraph.Branch.UNCOND, ifNode);
+        exprNode.connectToFirst(ifNode, MyFlowGraph.Branch.TRUE);
         toNextCase.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
         toNextCase.addLeaf(exprNode.getLeafs());
-        break;
 
+        break;
       case Token.DEFAULT:
         exprBlock = child.getFirstChild();
 
@@ -1038,12 +1042,12 @@ public class MyFlowGraphCreator implements CompilerPass {
 
           MySubproduct cmpRes = MySubproduct.newTemp();
           DiGraph.DiGraphNode eqNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EQ, switchVar, caseVal, cmpRes));
-          caseVal.connectLeafsTo(eqNode);
-
-          DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, caseVal));
+          DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, cmpRes));
           MySubproduct exprNode = rebuild(exprBlock);
-          exprNode.connectToFirst(ifNode, MyFlowGraph.Branch.TRUE);
 
+          caseVal.connectLeafsTo(eqNode);
+          connect(eqNode, MyFlowGraph.Branch.UNCOND, ifNode);
+          exprNode.connectToFirst(ifNode, MyFlowGraph.Branch.TRUE);
           toNextCase.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
           toNextCase.addLeaf(exprNode.getLeafs());
           break;
@@ -1062,7 +1066,9 @@ public class MyFlowGraphCreator implements CompilerPass {
       }
     }
 
-    breakable.pop();
+    out.addLeaf(toNextCase.getLeafs());
+
+    breakable.removeLast();
     return out;
   }
 
@@ -1073,8 +1079,8 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     MySubproduct condNode = readNameOrRebuild(condBlock);
 
-    breakable.push(out);
-    continueable.push(condNode.getFirst());
+    breakable.addLast(out);
+    continueable.addLast(condNode.getFirst());
 
     MySubproduct bodyNode = rebuild(bodyBlock);
     bodyNode.connectLeafsTo(condNode);
@@ -1086,8 +1092,8 @@ public class MyFlowGraphCreator implements CompilerPass {
     out.setFirst(bodyNode.getFirst());
     out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
 
-    breakable.pop();
-    continueable.pop();
+    breakable.removeLast();
+    continueable.removeLast();
 
     return out;
   }
@@ -1099,8 +1105,8 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     MySubproduct condNode = readNameOrRebuild(condBlock);
     out.setFirst(condNode.getFirst());
-    breakable.add(out);
-    continueable.add(condNode.getFirst());
+    breakable.addLast(out);
+    continueable.addLast(condNode.getFirst());
 
     DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, condNode));
     condNode.connectLeafsTo(ifNode);
@@ -1110,6 +1116,9 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     connect(ifNode, MyFlowGraph.Branch.TRUE, bodyNode.getFirst());
     out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
+    // todo: wtf here ? i've missed pop()
+    breakable.removeLast();
+    continueable.removeLast();
 
     return out;
   }

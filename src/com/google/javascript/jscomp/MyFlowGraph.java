@@ -15,13 +15,11 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
   private DiGraphNode<MyNode, Branch> implicitReturn;
   private DiGraphNode<MyNode, Branch> entry;
 
-  public MyFlowGraph(DiGraphNode<MyNode, Branch> implicitReturn,
-                     DiGraphNode<MyNode, Branch> entry,
-                     DiGraphNode<MyNode, Branch> exceptExit) {
+  public MyFlowGraph() {
     super(false, true);
-    this.implicitReturn = implicitReturn;
-    this.entry = entry;
-    this.exceptExit = exceptExit;
+    this.entry = createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
+    this.implicitReturn = createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
+    this.exceptExit = createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
   }
 
   private DiGraphNode<MyNode, Branch> exceptExit;
@@ -37,6 +35,10 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
 
   public DiGraphNode<MyNode, Branch> getEntry() {
     return entry;
+  }
+
+  public DiGraphNode<MyNode, Branch> getExceptExit() {
+    return exceptExit;
   }
 
   public Comparator<DiGraphNode<MyNode, Branch>> getOptionalNodeComparator(boolean forward) {
