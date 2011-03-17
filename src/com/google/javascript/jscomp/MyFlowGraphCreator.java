@@ -41,10 +41,10 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.flowGraph = new MyFlowGraph();
     this.entry = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
     this.implicitReturn = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
     this.exceptExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
+    this.flowGraph = new MyFlowGraph(entry, implicitReturn, exceptExit);
 
     this.breakable = new LinkedList<MySubproduct>();
     this.continueable = new LinkedList<DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch>>();

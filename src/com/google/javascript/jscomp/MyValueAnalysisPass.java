@@ -3,7 +3,6 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.Lists;
 import com.google.javascript.rhino.Node;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -13,11 +12,11 @@ import java.util.List;
  * Time: 2:39
  * To change this template use File | Settings | File Templates.
  */
-public class MyConditionFinderPass implements CompilerPass {
+public class MyValueAnalysisPass implements CompilerPass {
   private final AbstractCompiler compiler;
   private List<Node> conditions = Lists.newLinkedList();
 
-  public MyConditionFinderPass(AbstractCompiler compiler) {
+  public MyValueAnalysisPass(AbstractCompiler compiler) {
     this.compiler = compiler;
   }
 
@@ -41,9 +40,9 @@ public class MyConditionFinderPass implements CompilerPass {
 
   }
 
-  private class ConditionFinder extends DataFlowAnalysis<Node, MyLatticeElement> {
-    private ConditionFinder(ControlFlowGraph<Node> targetCfg, MyJoinOp myLatticeElemJoinOp) {
-      super(targetCfg, myLatticeElemJoinOp);
+  private class ValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
+    ValueAnalyzer(MyFlowGraph targetCfg, JoinOp<AnalyzerState> analyzerStateJoinOp) {
+      super(targetCfg, analyzerStateJoinOp);
     }
 
     @Override
@@ -52,34 +51,34 @@ public class MyConditionFinderPass implements CompilerPass {
     }
 
     @Override
-    MyLatticeElement flowThrough(Node node, MyLatticeElement input) {
-      return null;
+    AnalyzerState flowThrough(MyNode node, AnalyzerState input) {
+      return  null;
     }
 
     @Override
-    MyLatticeElement createInitialEstimateLattice() {
-      return new MyLatticeElement(false);
+    AnalyzerState createInitialEstimateLattice() {
+      return new AnalyzerState(false);
     }
 
     @Override
-    MyLatticeElement createEntryLattice() {
-      return new MyLatticeElement(false);
+    AnalyzerState createEntryLattice() {
+      return new AnalyzerState(false);
     }
   }
 
-  private class MyLatticeElement implements LatticeElement {
-    private MyLatticeElement(boolean mayAffect) {
+  private class AnalyzerState implements LatticeElement {
+    private AnalyzerState(boolean mayAffect) {
       this.mayAffect = mayAffect;
     }
 
     boolean mayAffect;
   }
 
-  private class MyJoinOp extends JoinOp.BinaryJoinOp<MyLatticeElement>
+  private class MyJoinOp extends JoinOp.BinaryJoinOp<AnalyzerState>
   {
     @Override
-    MyLatticeElement apply(MyLatticeElement latticeA, MyLatticeElement latticeB) {
-      MyLatticeElement element = new MyLatticeElement(latticeA.mayAffect || latticeB.mayAffect);
+    AnalyzerState apply(AnalyzerState latticeA, AnalyzerState latticeB) {
+      AnalyzerState element = new AnalyzerState(latticeA.mayAffect || latticeB.mayAffect);
       return element;
     }
   }

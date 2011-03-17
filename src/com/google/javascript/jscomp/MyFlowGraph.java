@@ -15,24 +15,27 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
   private DiGraphNode<MyNode, Branch> implicitReturn;
   private DiGraphNode<MyNode, Branch> entry;
 
-  public MyFlowGraph() {
+  public MyFlowGraph(DiGraphNode<MyNode, Branch> implicitReturn,
+                     DiGraphNode<MyNode, Branch> entry,
+                     DiGraphNode<MyNode, Branch> exceptExit) {
     super(false, true);
+    this.implicitReturn = implicitReturn;
+    this.entry = entry;
+    this.exceptExit = exceptExit;
   }
 
-  protected MyFlowGraph(boolean useNodeAnnotations, boolean useEdgeAnnotations) {
-    super(useNodeAnnotations, useEdgeAnnotations);
-  }
+  private DiGraphNode<MyNode, Branch> exceptExit;
 
   @Override
   public String getName() {
     return "MyFG";
   }
 
-  public DiGraphNode<MyNode,Branch> getImplicitReturn() {
+  public DiGraphNode<MyNode, Branch> getImplicitReturn() {
     return implicitReturn;
   }
 
-  public DiGraphNode<MyNode,Branch> getEntry() {
+  public DiGraphNode<MyNode, Branch> getEntry() {
     return entry;
   }
 
@@ -41,19 +44,33 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
   }
 
   public static enum Branch {
-    /** analyzer will always traverse throught this node */
+    /**
+     * analyzer will always traverse throught this node
+     */
     UNCOND,
-    /** analyzer will never traverse throught this node */
+    /**
+     * analyzer will never traverse throught this node
+     */
     NEVER,
-    /** analyzer will traverse throught this node when 'IF' node's result was true*/
+    /**
+     * analyzer will traverse throught this node when 'IF' node's result was true
+     */
     TRUE,
-    /** analyzer will traverse throught this node when 'IF' node's result was false*/
+    /**
+     * analyzer will traverse throught this node when 'IF' node's result was false
+     */
     FALSE,
-    /** analyzer will traverse throught this node when exception occured*/
+    /**
+     * analyzer will traverse throught this node when exception occured
+     */
     EXEPT,
-    /** analyzer will traverse throught this node when function was called*/
+    /**
+     * analyzer will traverse throught this node when function was called
+     */
     CALL,
-    /** analyzer will traverse throught this node when returning from function*/
+    /**
+     * analyzer will traverse throught this node when returning from function
+     */
     RETURN;
   }
 
