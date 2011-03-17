@@ -119,9 +119,13 @@ public class MySubproduct {
   }
 
   protected static class NodeBuffer extends MyValuable {
-
     public NodeBuffer() {
       this.type = MyValuable.Type.NONE;
+    }
+
+    @Override
+    public String toString() {
+      return "none";
     }
 
     public Object getValue() {
@@ -245,6 +249,6 @@ public class MySubproduct {
   }
 
   public void addLeaf(List<Pair> leafs) {
-    leafs.addAll(leafs);
+    this.leafs.addAll(leafs);
   }
 }

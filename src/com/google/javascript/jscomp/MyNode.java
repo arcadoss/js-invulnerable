@@ -150,7 +150,7 @@ public class MyNode {
     // (x) represent entries of catch blocks.
     CATCH,
 
-    // (v1, v2) represent for in loop. Here v1 contains base object, v2 is temprorary variable for iterating
+    // (v1, v2) represent for in loop. Here v2 contains base object, v1 is temprorary variable for iterating
     FOR_IN,
 
     // (v) represent with statement

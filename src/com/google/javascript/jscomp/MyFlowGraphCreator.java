@@ -3,22 +3,22 @@ package com.google.javascript.jscomp;
 import com.google.javascript.jscomp.graph.DiGraph;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.sun.org.apache.xalan.internal.xsltc.dom.NthIterator;
 
 import java.util.*;
 
 /**
- * User: arcadoss
- * Date: 17.02.11
- * Time: 15:09
+ * This compiler pass creates program's control flow graph using
+ * special nodes set. It used for abstract interpretation.
+ *
+ * @author arcadoss
  */
 public class MyFlowGraphCreator implements CompilerPass {
   private final AbstractCompiler compiler;
 
   MyFlowGraph flowGraph;
-  DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoRoot;
-  DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> pseudoExit;
-  DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> exceptExit;
+  final DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> entry;
+  final DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> implicitReturn;
+  final DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> exceptExit;
 
   /**
    * breakable represent a list of subgraphs. List's tail getLeafs() contains all leafs,
@@ -42,8 +42,8 @@ public class MyFlowGraphCreator implements CompilerPass {
   public MyFlowGraphCreator(AbstractCompiler compiler) {
     this.compiler = compiler;
     this.flowGraph = new MyFlowGraph();
-    this.pseudoRoot = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
-    this.pseudoExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
+    this.entry = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
+    this.implicitReturn = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
     this.exceptExit = this.flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
 
     this.breakable = new LinkedList<MySubproduct>();
@@ -59,8 +59,8 @@ public class MyFlowGraphCreator implements CompilerPass {
   public void process(Node externs, Node root) {
     try {
       MySubproduct result = rebuild(root);
-      result.connectToFirst(pseudoRoot);
-      result.connectLeafsTo(pseudoExit);
+      result.connectToFirst(entry);
+      result.connectLeafsTo(implicitReturn);
 
     } catch (UnimplTransformEx unimplTransformEx) {
       unimplTransformEx.printStackTrace();
@@ -112,6 +112,8 @@ public class MyFlowGraphCreator implements CompilerPass {
         return handleWith(entry);
       case Token.NEW:
         return handleNew(entry);
+//      case Token.DELPROP:
+//        return handleDelProp(entry);
 
       // assignment operations
       case Token.ASSIGN:
@@ -238,6 +240,10 @@ public class MyFlowGraphCreator implements CompilerPass {
 
   }
 
+//  private MySubproduct handleDelProp(Node entry) {
+//    return null;
+//  }
+
   private MySubproduct handleNew(Node entry) throws UnimplTransformEx, UnexpectedNode {
     MySubproduct result = MySubproduct.newTemp();
 
@@ -249,9 +255,9 @@ public class MyFlowGraphCreator implements CompilerPass {
       list.add(param);
     }
 
-    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> constNode
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> constNode
         = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.CONSTRUCT, list));
-    DiGraph.DiGraphNode<MyNode,MyFlowGraph.Branch> afterCall
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> afterCall
         = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_CALL, result));
 
     connect(list);
@@ -351,10 +357,11 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct object = readNameOrRebuild(objBlock);
     MySubproduct indexNode = rebuild(indexBlock);
 
-    object.connectLeafsTo(indexNode.getFirst());
-
     MySubproduct property = MySubproduct.newTemp();
     DiGraph.DiGraphNode readNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.READ_PROPERTY, object, indexNode, property));
+
+    object.connectLeafsTo(indexNode.getFirst());
+    indexNode.connectLeafsTo(readNode);
     property.addLeaf(readNode);
     property.setFirst(object.getFirst());
 
@@ -435,7 +442,7 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MySubproduct handleThrow(Node entry) throws UnimplTransformEx, UnexpectedNode {
-    MySubproduct out = null;
+    MySubproduct out = MySubproduct.newBuffer();
 
     Node exprBlock = entry.getFirstChild();
     MySubproduct exprNode = rebuild(exprBlock);
@@ -522,14 +529,17 @@ public class MyFlowGraphCreator implements CompilerPass {
   }
 
   private MySubproduct handleBlock(Node entry) throws UnimplTransformEx, UnexpectedNode {
-    Node block = entry.getFirstChild();
-
-    if (block == null) {
+    if (!entry.hasChildren()) {
       return MySubproduct.newNan();
     }
 
+    Node block = entry.getFirstChild();
+
+    MySubproduct out = MySubproduct.newBuffer();
     MySubproduct firstBlock = rebuild(block);
     MySubproduct prevBlock = firstBlock;
+
+    out.setFirst(firstBlock.getFirst());
 
     while ((block = block.getNext()) != null) {
       MySubproduct currBlock = rebuild(block);
@@ -537,8 +547,8 @@ public class MyFlowGraphCreator implements CompilerPass {
       prevBlock = currBlock;
     }
 
-    prevBlock.setFirst(firstBlock.getFirst());
-    return prevBlock;
+    out.addLeaf(prevBlock.getLeafs());
+    return out;
   }
 
   private MySubproduct handleHook(Node entry) throws UnimplTransformEx, UnexpectedNode {
@@ -546,7 +556,6 @@ public class MyFlowGraphCreator implements CompilerPass {
     Node exprOnTrue = cond.getNext();
     Node exprOnFalse = exprOnTrue.getNext();
 
-    // TODO: should I add ternary operator ?
     MySubproduct condValue = readNameOrRebuild(cond);
     MySubproduct trueExpNode = readNameOrRebuild(exprOnTrue);
     MySubproduct falseExpNode = readNameOrRebuild(exprOnFalse);
@@ -711,18 +720,18 @@ public class MyFlowGraphCreator implements CompilerPass {
     Node objBlock = entry.getFirstChild();
     Node indexBlock = objBlock.getNext();
 
-    // TODO : check operations order
     MySubproduct object = readNameOrRebuild(objBlock);
-    MySubproduct indexNode = rebuild(indexBlock);
+    MySubproduct indexNode = readNameOrRebuild(indexBlock);
 
     if (indexBlock.getType() != Token.STRING) {
       throw new UnexpectedNode(indexBlock);
     }
 
-    object.connectLeafsTo(indexNode.getFirst());
-
     MySubproduct property = MySubproduct.newTemp();
     DiGraph.DiGraphNode readNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.READ_PROPERTY, object, indexNode, property));
+
+    object.connectLeafsTo(indexNode.getFirst());
+    indexNode.connectLeafsTo(readNode);
     property.addLeaf(readNode);
     property.setFirst(object.getFirst());
 
@@ -760,6 +769,7 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct out = MySubproduct.newBuffer();
 
     MySubproduct varNode = readNameOrRebuild(varBlock);
+    // TODO: condNode could have no value
     MySubproduct condNode = readNameOrRebuild(condBlock);
     MySubproduct incNode = rebuild(incBlock);
 
@@ -769,13 +779,14 @@ public class MyFlowGraphCreator implements CompilerPass {
     continueable.pop();
     breakable.pop();
 
-    varNode.connectLeafsTo(condNode);
     out.setFirst(varNode.getFirst());
+    varNode.connectLeafsTo(condNode);
     DiGraph.DiGraphNode ifNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.IF, condNode));
+    condNode.connectLeafsTo(ifNode);
     connect(ifNode, MyFlowGraph.Branch.TRUE, exprNode.getFirst());
     out.addLeaf(ifNode, MyFlowGraph.Branch.FALSE);
     exprNode.connectLeafsTo(incNode);
-    exprNode.connectLeafsTo(condNode);
+    incNode.connectLeafsTo(condNode);
 
     return out;
   }
@@ -791,22 +802,23 @@ public class MyFlowGraphCreator implements CompilerPass {
 
     breakable.push(out);
 
+    // TODO: for (var bla-bla in bla) will fail here
     switch (nameBlock.getType()) {
       case Token.NAME:
         MySubproduct nameNode = MySubproduct.newVarName(nameBlock.getString());
 
-        DiGraph.DiGraphNode forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, objNode, iterVar));
+        DiGraph.DiGraphNode forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, iterVar, objNode));
         DiGraph.DiGraphNode writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_VARIABLE, iterVar, nameNode));
-
-        out.setFirst(objNode.getFirst());
-        objNode.connectLeafsTo(forinNode);
-        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
-        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
 
         continueable.push(forinNode);
         MySubproduct exprNode = rebuild(exprBlock);
 
-        connect(writeNode, MyFlowGraph.Branch.UNCOND, exprNode.getFirst());
+        out.setFirst(objNode.getFirst());
+
+        objNode.connectLeafsTo(forinNode);
+        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
+        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
+        exprNode.connectToFirst(writeNode);
         exprNode.connectLeafsTo(forinNode);
 
         break;
@@ -816,23 +828,22 @@ public class MyFlowGraphCreator implements CompilerPass {
         Node index = base.getNext();
 
         MySubproduct dest = readNameOrRebuild(base);
-        MySubproduct prop = rebuild(index);
+        MySubproduct prop = readNameOrRebuild(index);
 
-        forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, objNode, iterVar));
+        forinNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.FOR_IN, iterVar, objNode));
         writeNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WRITE_PROPERTY, dest, prop, iterVar));
-
-        // TODO check operations order
-        out.setFirst(dest.getFirst());
-        dest.connectLeafsTo(prop);
-        prop.connectLeafsTo(objNode);
-        objNode.connectLeafsTo(forinNode);
-        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
-        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
 
         continueable.push(forinNode);
         exprNode = rebuild(exprBlock);
 
-        connect(writeNode, MyFlowGraph.Branch.UNCOND, exprNode.getFirst());
+        out.setFirst(dest.getFirst());
+        dest.connectLeafsTo(prop);
+        prop.connectLeafsTo(objNode);
+
+        objNode.connectLeafsTo(forinNode);
+        connect(forinNode, MyFlowGraph.Branch.TRUE, writeNode);
+        out.addLeaf(forinNode, MyFlowGraph.Branch.FALSE);
+        exprNode.connectToFirst(writeNode);
         exprNode.connectLeafsTo(forinNode);
 
         break;

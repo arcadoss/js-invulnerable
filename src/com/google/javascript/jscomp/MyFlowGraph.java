@@ -1,7 +1,10 @@
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.graph.DiGraph;
 import com.google.javascript.jscomp.graph.GraphvizGraph;
 import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
+
+import java.util.Comparator;
 
 /**
  * User: arcadoss
@@ -9,6 +12,9 @@ import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
  * Time: 20:11
  */
 public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch> {
+  private DiGraphNode<MyNode, Branch> implicitReturn;
+  private DiGraphNode<MyNode, Branch> entry;
+
   public MyFlowGraph() {
     super(false, true);
   }
@@ -20,6 +26,18 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
   @Override
   public String getName() {
     return "MyFG";
+  }
+
+  public DiGraphNode<MyNode,Branch> getImplicitReturn() {
+    return implicitReturn;
+  }
+
+  public DiGraphNode<MyNode,Branch> getEntry() {
+    return entry;
+  }
+
+  public Comparator<DiGraphNode<MyNode, Branch>> getOptionalNodeComparator(boolean forward) {
+    return null;
   }
 
   public static enum Branch {
