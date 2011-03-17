@@ -7,7 +7,7 @@
  2. If you want interpretator's flow graph for file.js you 
     should run compiler with the following options:
 
-      java -jar ./build/compiler.jar --print_flowgraph --js file.js \
+      java -jar ./build/compiler.jar --print_myflowgraph --js file.js \
 	   --compilation_level WHITESPACE_ONLY  > file.dot
 
 
