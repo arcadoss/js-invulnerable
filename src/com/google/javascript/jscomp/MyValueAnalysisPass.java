@@ -22,21 +22,6 @@ public class MyValueAnalysisPass implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    // Use the MemoizedScopeCreator instance from TypeCheck if available
-    // as FunctionTypeBuilder warns about existing types if TypedScopeCreator is
-    // ran a second time.
-    ScopeCreator scopeCreator = compiler.getScopeCreator();
-    if (scopeCreator == null) {
-      // The TypedScopeCreator gives us correct handling of namespaces,
-      // while the default NodeTraversal only gives us a
-      // SyntacticScopeCreator.
-      scopeCreator = new TypedScopeCreator(compiler);
-    }
-
-//        NodeTraversal codeTraversal = new NodeTraversal(compiler,
-//                new ConditionFace(), scopeCreator);
-//
-//        codeTraversal.traverse(root);
 
   }
 
@@ -47,54 +32,36 @@ public class MyValueAnalysisPass implements CompilerPass {
 
     @Override
     boolean isForward() {
-      return false;
+      return true;
     }
 
     @Override
     AnalyzerState flowThrough(MyNode node, AnalyzerState input) {
-      return  null;
+      switch (node.getCommand()) {
+        case IF:
+          break;
+
+      }
+      return null;
     }
 
     @Override
     AnalyzerState createInitialEstimateLattice() {
-      return new AnalyzerState(false);
+      return null;
     }
 
     @Override
     AnalyzerState createEntryLattice() {
-      return new AnalyzerState(false);
+      return null;
     }
-  }
-
-  private class AnalyzerState implements LatticeElement {
-    private AnalyzerState(boolean mayAffect) {
-      this.mayAffect = mayAffect;
-    }
-
-    boolean mayAffect;
   }
 
   private class MyJoinOp extends JoinOp.BinaryJoinOp<AnalyzerState>
   {
     @Override
     AnalyzerState apply(AnalyzerState latticeA, AnalyzerState latticeB) {
-      AnalyzerState element = new AnalyzerState(latticeA.mayAffect || latticeB.mayAffect);
-      return element;
+      return null;
     }
   }
 
-  private class ConditionFace implements NodeTraversal.Callback {
-    @Override
-    public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
-      return true;
-    }
-
-    @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {
-    }
-  }
-
-  public List<Node> getConditions() {
-    return conditions;
-  }
 }

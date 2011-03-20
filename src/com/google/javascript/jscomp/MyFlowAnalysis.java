@@ -205,6 +205,8 @@ abstract class MyFlowAnalysis< L extends LatticeElement> {
       DiGraphNode<MyNode, Branch> curNode = orderedWorkSet.iterator().next();
       orderedWorkSet.remove(curNode);
       joinInputs(curNode);
+//      todo: in value analysis it's crucial to choose right branch in 'if' nodes
+//      todo: it's neccessary to add state={UNCOND, TRUE, FALSE, EXCEPT} in annotations and check it here
       if (flow(curNode)) {
         // If there is a change in the current node, we want to grab the list
         // of nodes that this node affects.
@@ -525,51 +527,6 @@ abstract class MyFlowAnalysis< L extends LatticeElement> {
     @Override
     public int hashCode() {
       return Objects.hashCode(in, out);
-    }
-  }
-
-  /**
-   * Compute set of escaped variables. When a variable is escaped in a
-   * dataflow analysis, it can be reference outside of the code that we are
-   * analyzing. A variable is escaped if any of the following is true:
-   *
-   * <p><ol>
-   * <li>It is defined as the exception name in CATCH clause so it became a
-   * variable local not to our definition of scope.</li>
-   * <li>Exported variables as they can be needed after the script terminates.
-   * </li>
-   * <li>Names of named functions because in javascript, <i>function foo(){}</i>
-   * does not kill <i>foo</i> in the dataflow.</li>
-   */
-  static void computeEscaped(final Scope jsScope, final Set<Var> escaped,
-      AbstractCompiler compiler) {
-    // TODO(user): Very good place to store this information somewhere.
-    AbstractPostOrderCallback finder = new AbstractPostOrderCallback() {
-      @Override
-      public void visit(NodeTraversal t, Node n, Node parent) {
-        if (jsScope == t.getScope() || !NodeUtil.isName(n)
-            || NodeUtil.isFunction(parent)) {
-          return;
-        }
-        String name = n.getString();
-        Var var = t.getScope().getVar(name);
-        if (var != null && var.scope == jsScope) {
-          escaped.add(jsScope.getVar(name));
-        }
-      }
-    };
-
-    NodeTraversal t = new NodeTraversal(compiler, finder);
-    t.traverseAtScope(jsScope);
-
-    // 1: Remove the exception name in CATCH which technically isn't local to
-    //    begin with.
-    for (Iterator<Var> i = jsScope.getVars(); i.hasNext();) {
-      Var var = i.next();
-      if (var.getParentNode().getType() == Token.CATCH ||
-          compiler.getCodingConvention().isExported(var.getName())) {
-        escaped.add(var);
-      }
     }
   }
 }
