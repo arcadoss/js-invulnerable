@@ -1,8 +1,6 @@
 package com.google.javascript.jscomp;
 
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author arcadoss
@@ -31,18 +29,39 @@ class AnalyzerState implements LatticeElement {
    * @author arcadoss
    */
   public static class Label {
+    int label;
   }
 
   /**
    * @author arcadoss
    */
   public static class Value {
+    //    todo: add unknown here ?
     BaseObj undefVal;
     BaseObj nullVal;
     BaseObj boolVal;
     BaseObj numVal;
     BaseObj strVal;
-    Set<Label> objVal;
+    BaseObj objVal;
+
+    Collection<BaseObj> values;
+
+    public Value() {
+      undefVal = new SimpleObj();
+      nullVal = new SimpleObj();
+      boolVal = new BoolObj();
+      numVal = new IntObj();
+      strVal = new StrObj();
+      objVal = new ObjectObj();
+
+      values = new ArrayList<BaseObj>();
+      values.add(undefVal);
+      values.add(nullVal);
+      values.add(boolVal);
+      values.add(numVal);
+      values.add(strVal);
+      values.add(objVal);
+    }
   }
 
   /**
@@ -59,21 +78,31 @@ class AnalyzerState implements LatticeElement {
    */
   public static class AbsObject {
     Map<String, Property> properties;
-    Set<Label> scopeChain;
+    Set<LinkedList<Label>> scopeChains;
   }
 
   /**
    * @author arcadoss
    */
   public static class Property {
-    BaseObj value;
+    Value value;
     BaseObj absent;
     BaseObj readOnly;
     BaseObj dontDelete;
     BaseObj dontEnum;
     BaseObj modified;
+
+    public Property() {
+      value = new Value();
+      absent = new SimpleObj();
+      modified = new SimpleObj();
+      readOnly = new BoolObj();
+      dontDelete = new BoolObj();
+      dontEnum = new BoolObj();
+    }
   }
 
+//  todo: implement BaseObj classes
 //  todo: method for creating new lattice, with default global variables and methods
 //  todo: create 'abstract memory' for storing object entities
 //  todo: interprocedural analysis
