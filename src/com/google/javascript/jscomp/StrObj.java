@@ -14,12 +14,18 @@ public class StrObj implements BaseObj<StrObj> {
     this.value = new HashSet<String>();
   }
 
+  private StrObj(Set<String> value) {
+    this.value = value;
+  }
+
   @Override
   public StrObj union(StrObj rValue) {
-    this.value.addAll(rValue.getValue());
+    Set<String> newValue = new HashSet<String>(value);
+    newValue.addAll(rValue.getValue());
     if (value.size() > MaxStrCount)
       throw new IllegalStateException("Too many string values collected");
-    return this;
+
+    return new StrObj(newValue);
   }
 
   public Set<String> getValue() {

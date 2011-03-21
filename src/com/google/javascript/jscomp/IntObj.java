@@ -17,11 +17,16 @@ public class IntObj implements BaseObj<IntObj> {
     this.right = value;
   }
 
+  private IntObj(double left, double right) {
+    this.left = left;
+    this.right = right;
+  }
+
   @Override
   public IntObj union(IntObj rValue) {
-    this.left = Math.min(this.left, rValue.getLeft());
-    this.right = Math.max(this.right, rValue.getRight());
-    return this;
+    double newLeft = Math.min(this.left, rValue.getLeft());
+    double newRight = Math.max(this.right, rValue.getRight());
+    return new IntObj(newLeft, newRight);
   }
 
   public double getLeft() {

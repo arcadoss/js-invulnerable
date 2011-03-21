@@ -20,10 +20,14 @@ public class SimpleObj implements BaseObj<SimpleObj> {
     this.value = BOTTOM;
   }
 
+  private SimpleObj(int value) {
+    this.value = value;
+  }
+
   @Override
   public SimpleObj union(SimpleObj rValue) {
-    this.value = this.value | rValue.getValue();
-    return this;
+    int newValue = this.value | rValue.getValue();
+    return new SimpleObj(newValue);
   }
 
   public int getValue() {

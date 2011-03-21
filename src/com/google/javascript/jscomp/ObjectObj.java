@@ -16,12 +16,18 @@ public class ObjectObj implements BaseObj<ObjectObj> {
     this.value = new HashSet<Label>();
   }
 
+  private ObjectObj(Set<Label> value) {
+    this.value = value;
+  }
+
   @Override
   public ObjectObj union(ObjectObj rValue) {
-    this.value.addAll(rValue.getValue());
-    if (value.size() > MaxObjCount)
+    Set<Label> newValue = new HashSet<Label>(value);
+    newValue.addAll(rValue.getValue());
+    if (newValue.size() > MaxObjCount)
       throw new IllegalStateException("Label reffers on too many objects");
-    return this;
+
+    return new ObjectObj(newValue);
   }
 
   public Set<Label> getValue() {

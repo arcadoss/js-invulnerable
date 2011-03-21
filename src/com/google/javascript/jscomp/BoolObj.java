@@ -34,8 +34,8 @@ public class BoolObj implements BaseObj<BoolObj> {
 
   @Override
   public BoolObj union(BoolObj rValue) {
-    this.value = this.value | rValue.getValue();
-    return this;
+    int newValue = this.value | rValue.getValue();
+    return new BoolObj(newValue);
   }
 
   public int getValue() {

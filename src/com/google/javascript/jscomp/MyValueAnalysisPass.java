@@ -6,11 +6,7 @@ import com.google.javascript.rhino.Node;
 import java.util.List;
 
 /**
- * Created by IntelliJ IDEA.
- * User: arcadoss
- * Date: 07.12.10
- * Time: 2:39
- * To change this template use File | Settings | File Templates.
+ * @author arcadoss
  */
 public class MyValueAnalysisPass implements CompilerPass {
   private final AbstractCompiler compiler;
@@ -22,45 +18,16 @@ public class MyValueAnalysisPass implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-
+    MyFlowGraphCreator creator = new MyFlowGraphCreator(compiler);
+    creator.process(externs, root);
+    MyValueAnalyzer analyzer = new MyValueAnalyzer(creator.getFlowGraph(), new MyJoinOp());
+    analyzer.analyze();
   }
 
-  private class ValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
-    ValueAnalyzer(MyFlowGraph targetCfg, JoinOp<AnalyzerState> analyzerStateJoinOp) {
-      super(targetCfg, analyzerStateJoinOp);
-    }
-
-    @Override
-    boolean isForward() {
-      return true;
-    }
-
-    @Override
-    AnalyzerState flowThrough(MyNode node, AnalyzerState input) {
-      switch (node.getCommand()) {
-        case IF:
-          break;
-
-      }
-      return null;
-    }
-
-    @Override
-    AnalyzerState createInitialEstimateLattice() {
-      return null;
-    }
-
-    @Override
-    AnalyzerState createEntryLattice() {
-      return null;
-    }
-  }
-
-  private class MyJoinOp extends JoinOp.BinaryJoinOp<AnalyzerState>
-  {
+  private class MyJoinOp extends JoinOp.BinaryJoinOp<AnalyzerState> {
     @Override
     AnalyzerState apply(AnalyzerState latticeA, AnalyzerState latticeB) {
-      return null;
+      return latticeA.union(latticeB);
     }
   }
 
