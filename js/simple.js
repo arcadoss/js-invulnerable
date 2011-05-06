@@ -85,8 +85,8 @@ try {
 }
 
 try {
-  throw new Date("10.03.20");
   fun1(10, 3, 400);
+  throw new Date("10.03.20");
 } catch (e) {
   output = 'fin';
 }

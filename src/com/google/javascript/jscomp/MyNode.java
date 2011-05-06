@@ -88,7 +88,7 @@ public class MyNode {
 
   public static enum Type {
     // not a note, should be removed during the second traversal
-    NAN,
+    SKIP,
 
     // pseudo node
     PSEUDO_NODE,

@@ -8,15 +8,12 @@ import java.util.*;
 class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
   Store store;
   Stack stack;
+  Marker marker;
 
-  AnalyzerState() {
-    this.store = new Store();
-    this.stack = new Stack();
-  }
-
-  private AnalyzerState(Store store, Stack stack) {
+  AnalyzerState(Store store, Stack stack, Marker marker) {
     this.store = store;
     this.stack = stack;
+    this.marker = marker;
   }
 
   /**
@@ -49,7 +46,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
    */
   public static class Stack implements BaseObj<Stack> {
     Map<String, Value> tempValues;
-    Set<ExecutionContext> context;
+    ExecutionContext context;
     Set<Label> reachable;
 
     public Stack() {
@@ -85,6 +82,31 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
 
     public Set<Label> getReachable() {
       return reachable;
+    }
+  }
+
+  /**
+   * @author arcadoss
+   */
+  public static class Marker implements BaseObj<Marker> {
+    Set<MyFlowGraph.Branch> markers;
+
+    public Marker() {
+      this.markers = new HashSet<MyFlowGraph.Branch>();
+    }
+
+    public Marker(Set<MyFlowGraph.Branch> set) {
+      this.markers = set;
+    }
+
+    @Override
+    public Marker union(Marker rValue) {
+      Set<MyFlowGraph.Branch> set = joinSets(markers, rValue.getMarkers());
+      return new Marker(set);
+    }
+
+    public Set<MyFlowGraph.Branch> getMarkers() {
+      return markers;
     }
   }
 
@@ -207,7 +229,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       Map<String,Property> newProp = joinMaps(properties, rValue.getProperties());
       Set<LinkedList<Label>> newChains = joinSets(scopeChains, rValue.getScopeChains());
 
-      return new AbsObject();
+      return new AbsObject(newProp, newChains);
     }
 
     public Map<String, Property> getProperties() {
@@ -296,8 +318,9 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
   public AnalyzerState union(AnalyzerState rValue) {
     Stack newStack = stack.union(rValue.getStack());
     Store newStore = store.union(rValue.getStore());
+    marker = marker.union(rValue.getMarker());
 
-    return new AnalyzerState(newStore, newStack);
+    return new AnalyzerState(newStore, newStack, marker);
   }
 
   public Store getStore() {
@@ -307,6 +330,28 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
   public Stack getStack() {
     return stack;
   }
+
+  public Marker getMarker() {
+    return marker;
+  }
+
+
+  public static AnalyzerState createGlobal() {
+    Stack initStack = new Stack();
+    Marker initMarker = new Marker();
+    Store initStore = new Store();
+
+    return new AnalyzerState(initStore, initStack, initMarker);
+  }
+
+  public static AnalyzerState bottom() {
+    Stack initStack = new Stack();
+    Marker initMarker = new Marker();
+    Store initStore = new Store();
+
+    return new AnalyzerState(initStore, initStack, initMarker);
+  }
+
 
   private static <K, V extends BaseObj<V>> Map<K, V> joinMaps(Map<K, V> map1, Map<K, V> map2) {
     Map<K, V> out = new HashMap(map1);
@@ -330,11 +375,4 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     return out;
   }
 
-  //  todo: implement transfer function
-//  todo: implement JoinOp
-//  todo: create 'abstract memory' for storing object entities
-//  todo: interprocedural analysis
-//  todo: context sensetivity
-//  todo: recency abstraction
-//  todo: widening, narrowing and other cool stuff
 }

@@ -16,7 +16,7 @@ class MyValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
   @Override
   AnalyzerState flowThrough(MyNode node, AnalyzerState input) {
     switch (node.getCommand()) {
-      case NAN:
+      case SKIP:
         return input;
 
       case DECLARE_VARIABLE:
@@ -121,12 +121,11 @@ class MyValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
 
   @Override
   AnalyzerState createInitialEstimateLattice() {
-    return new AnalyzerState();
+    return AnalyzerState.bottom() ;
   }
 
   @Override
   AnalyzerState createEntryLattice() {
-    // todo : global object should be initialized here
-    return new AnalyzerState();
+    return AnalyzerState.createGlobal();
   }
 }

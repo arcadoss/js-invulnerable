@@ -174,7 +174,7 @@ public class MySubproduct {
   public static MySubproduct newNan() {
     MySubproduct out = MySubproduct.newBuffer();
 
-    DiGraph.DiGraphNode emptyNode = graph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
+    DiGraph.DiGraphNode emptyNode = graph.createDirectedGraphNode(new MyNode(MyNode.Type.SKIP));
     out.setFirst(emptyNode);
     out.addLeaf(emptyNode);
     return out;

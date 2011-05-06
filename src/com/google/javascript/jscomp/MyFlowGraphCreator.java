@@ -697,7 +697,7 @@ public class MyFlowGraphCreator implements CompilerPass {
   private MySubproduct handleContinue(Node entry) {
     MySubproduct out = MySubproduct.newBuffer();
 
-    DiGraph.DiGraphNode nan = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
+    DiGraph.DiGraphNode nan = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.SKIP));
     out.setFirst(nan);
     // TODO : should I add dead leaf here ?
 
@@ -710,7 +710,7 @@ public class MyFlowGraphCreator implements CompilerPass {
   private MySubproduct handleBreak(Node entry) {
     MySubproduct out = MySubproduct.newBuffer();
 
-    DiGraph.DiGraphNode nan = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.NAN));
+    DiGraph.DiGraphNode nan = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.SKIP));
     out.setFirst(nan);
     // TODO : should I add dead leaf here ?
 
