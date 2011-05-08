@@ -1,5 +1,7 @@
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.graph.DiGraph;
+
 import java.util.*;
 
 /**
@@ -46,28 +48,34 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
    */
   public static class Stack implements BaseObj<Stack> {
     Map<String, Value> tempValues;
-    ExecutionContext context;
-    Set<Label> reachable;
+    Set<ExecutionContext> context;
+
+    final String varForFunc = "v_call";
+    final String varForExept = "v_ex";
+    Value funcRes;
+    Value exeptRes;
 
     public Stack() {
       tempValues = new HashMap<String, Value>();
       context = new HashSet<ExecutionContext>();
-      reachable = new HashSet<Label>();
+
+      funcRes = new Value();
+      exeptRes = new Value();
+      tempValues.put(varForFunc, funcRes);
+      tempValues.put(varForExept, exeptRes);
     }
 
-    private Stack(Map<String, Value> tempValues, Set<ExecutionContext> context, Set<Label> reachable) {
+    private Stack(Map<String, Value> tempValues, Set<ExecutionContext> context) {
       this.tempValues = tempValues;
       this.context = context;
-      this.reachable = reachable;
     }
 
     @Override
     public Stack union(Stack rValue) {
       Map<String, Value> newTempVal = joinMaps(tempValues, rValue.getTempValues());
       Set<ExecutionContext> newContext = joinSets(context, rValue.getContext());
-      Set<Label> newReachable = joinSets(reachable, rValue.getReachable());
 
-      Stack newStack = new Stack(newTempVal, newContext, newReachable);
+      Stack newStack = new Stack(newTempVal, newContext);
 
       return newStack;
     }
@@ -80,8 +88,20 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       return context;
     }
 
-    public Set<Label> getReachable() {
-      return reachable;
+    public Value getFuncRes() {
+      return funcRes;
+    }
+
+    public void setFuncRes(Value funcRes) {
+      this.funcRes = funcRes;
+    }
+
+    public Value getExeptRes() {
+      return exeptRes;
+    }
+
+    public void setExeptRes(Value exeptRes) {
+      this.exeptRes = exeptRes;
     }
   }
 
@@ -213,10 +233,14 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
   public static class AbsObject implements BaseObj<AbsObject> {
     Map<String, Property> properties;
     Set<LinkedList<Label>> scopeChains;
+    boolean isFunction;
+    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> functionEntry;
 
     public AbsObject() {
       this.properties = new HashMap<String, Property>();
       this.scopeChains = new HashSet<LinkedList<Label>>();
+      this.isFunction = false;
+      this.functionEntry = null;
     }
 
     private AbsObject(Map<String, Property> properties, Set<LinkedList<Label>> scopeChains) {
@@ -226,7 +250,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
 
     @Override
     public AbsObject union(AbsObject rValue) {
-      Map<String,Property> newProp = joinMaps(properties, rValue.getProperties());
+      Map<String, Property> newProp = joinMaps(properties, rValue.getProperties());
       Set<LinkedList<Label>> newChains = joinSets(scopeChains, rValue.getScopeChains());
 
       return new AbsObject(newProp, newChains);
@@ -310,7 +334,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       out.add(dne);
       out.add(modified);
 
-      return  out;
+      return out;
     }
   }
 
