@@ -4,8 +4,8 @@ package com.google.javascript.jscomp;
 * @author arcadoss
 */
 class MyValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
-  MyValueAnalyzer(MyFlowGraph targetCfg, JoinOp<AnalyzerState> analyzerStateJoinOp) {
-    super(targetCfg, analyzerStateJoinOp);
+  MyValueAnalyzer(MyFlowGraph targetCfg, JoinOp<AnalyzerState> analyzerStateJoinOp, WhereOp<AnalyzerState> whereOp) {
+    super(targetCfg, analyzerStateJoinOp, whereOp);
   }
 
   @Override
