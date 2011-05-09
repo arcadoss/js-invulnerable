@@ -11,17 +11,24 @@ import java.util.List;
 public class MyValueAnalysisPass implements CompilerPass {
   private final AbstractCompiler compiler;
   private List<Node> conditions = Lists.newLinkedList();
+  private MyFlowGraph flowGraph;
 
   public MyValueAnalysisPass(AbstractCompiler compiler) {
     this.compiler = compiler;
+    this.flowGraph = null;
   }
 
   @Override
   public void process(Node externs, Node root) {
     MyFlowGraphCreator creator = new MyFlowGraphCreator(compiler);
     creator.process(externs, root);
-    MyValueAnalyzer analyzer = new MyValueAnalyzer(creator.getFlowGraph(), new MyJoinOp());
+    flowGraph = creator.getFlowGraph();
+    MyValueAnalyzer analyzer = new MyValueAnalyzer(flowGraph, new MyJoinOp(), new WhereOp<AnalyzerState>());
     analyzer.analyze();
+  }
+
+  public MyFlowGraph getFlowGraph() {
+    return flowGraph;
   }
 
   private class MyJoinOp extends JoinOp.BinaryJoinOp<AnalyzerState> {

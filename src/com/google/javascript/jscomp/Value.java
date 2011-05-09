@@ -1,9 +1,6 @@
 package com.google.javascript.jscomp;
 
-import sun.org.mozilla.javascript.internal.Undefined;
-
 import java.util.*;
-import java.util.concurrent.locks.Condition;
 
 /**
  * @author arcadoss

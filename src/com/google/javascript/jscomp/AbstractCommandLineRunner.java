@@ -656,6 +656,19 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
       }
     }
 
+    if (config.reachAnalysis) {
+      if (compiler.getRoot() == null) {
+        return 1;
+      } else {
+        MyFlowGraph fg = compiler.checkReachability();
+        MyFormatter formatter = new MyFormatter(fg);
+        String analysis = formatter.toDot();
+        out.append(analysis);
+        out.append('\n');
+        return 0;
+      }
+    }
+
     if (config.printTree) {
       if (compiler.getRoot() == null) {
         out.append("Code contains errors; no tree was generated.\n");
@@ -1217,6 +1230,7 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
    */
   static class CommandLineConfig {
     private boolean printTree = false;
+    private boolean reachAnalysis;
 
     /** Prints out the parse tree and exits */
     CommandLineConfig setPrintTree(boolean printTree) {
@@ -1250,6 +1264,11 @@ abstract class AbstractCommandLineRunner<A extends Compiler,
 
     CommandLineConfig setPrintMyFlowGraph(boolean printMyFlowGraph) {
       this.printMyFlowGraph = printMyFlowGraph;
+      return this;
+    }
+
+    CommandLineConfig setReachAnalysis(boolean reachAnalysis) {
+      this.reachAnalysis = reachAnalysis;
       return this;
     }
 

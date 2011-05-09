@@ -114,6 +114,12 @@ public class CommandLineRunner extends
         usage = "Prints a dot file with JS flow graph")
     private boolean print_myflowgraph = false;
 
+    @Option(name = "--reach_analysis",
+        handler = BooleanOptionHandler.class,
+        usage = "Perfom reachability analysis")
+    private boolean reach_analysis = false;
+
+
     @Option(name = "--print_pass_graph",
         handler = BooleanOptionHandler.class,
         usage = "Prints a dot file describing the passes that will get run"
@@ -331,7 +337,7 @@ public class CommandLineRunner extends
     
     @Option(name = "--flagfile",
         usage = "A file containing additional command-line options.")
-    private String flag_file = "";    
+    private String flag_file = "";
 
     // Our own option parser to be backwards-compatible.
     // It needs to be public because of the crazy reflection that args4j does.
@@ -513,6 +519,7 @@ public class CommandLineRunner extends
           .setComputePhaseOrdering(flags.compute_phase_ordering)
           .setPrintAst(flags.print_ast)
           .setPrintMyFlowGraph(flags.print_myflowgraph)
+          .setReachAnalysis(flags.reach_analysis)
           .setPrintPassGraph(flags.print_pass_graph)
           .setJscompDevMode(flags.jscomp_dev_mode)
           .setLoggingLevel(flags.logging_level)

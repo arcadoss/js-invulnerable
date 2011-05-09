@@ -265,242 +265,244 @@ class MyValueAnalyzer extends MyFlowAnalysis<AnalyzerState> {
     Value rVal = temp.get(rValName);
 
     temp.put(resName, Value.add(lVal, rVal));
+    output.getMarker().toUncond();
+
     return output;
   }
 
 
   private AnalyzerState handleAfterCall(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleAnd(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleBitand(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleBitnot(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleBitor(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleBitxor(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleCall(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleCatch(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleConstant(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleConstruct(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleDec(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleDeleteProperty(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleDiv(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleEntry(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleEq(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleExit(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleExitExc(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleForIn(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleGe(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleGt(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleHook(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleIf(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleIn(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleInc(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleInstanceof(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleLe(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleLsh(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleLt(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleMod(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleMul(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleNe(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleNeg(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleNot(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleOr(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handlePos(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleReadProperty(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleReturn(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleRsh(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleSheq(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleShne(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleSub(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleThrow(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleTypeof(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleUrsh(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleWith(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleWriteProperty(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 
   private AnalyzerState handleWriteVariable(AnalyzerState input, List<MyValuable> operands) {
-    return null;
+    return input;
   }
 
 

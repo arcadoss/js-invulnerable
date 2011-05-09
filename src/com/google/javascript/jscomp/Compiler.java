@@ -1570,6 +1570,15 @@ public class Compiler extends AbstractCompiler {
     return cfa.getFlowGraph();
   }
 
+  MyFlowGraph checkReachability() {
+    logger.info("Computing point reachability");
+    Tracer tracer = newTracer("checkReachability");
+    MyValueAnalysisPass analysisPass = new MyValueAnalysisPass(this);
+    process(analysisPass);
+    stopTracer(tracer, "computeMyFlowGraph");
+    return analysisPass.getFlowGraph();
+  }
+
   public void normalize() {
     logger.info("Normalizing");
     startPass("normalize");

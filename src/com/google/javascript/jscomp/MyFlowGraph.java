@@ -16,7 +16,7 @@ public class MyFlowGraph extends LinkedDirectedGraph<MyNode, MyFlowGraph.Branch>
   private DiGraphNode<MyNode, Branch> entry;
 
   public MyFlowGraph() {
-    super(false, true);
+    super(true, true);
     this.entry = createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_ROOT));
     this.implicitReturn = createDirectedGraphNode(new MyNode(MyNode.Type.PSEUDO_EXIT));
     this.exceptExit = createDirectedGraphNode(new MyNode(MyNode.Type.EXIT_EXC));
