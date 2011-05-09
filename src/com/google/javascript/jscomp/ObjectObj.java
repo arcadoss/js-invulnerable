@@ -8,7 +8,7 @@ import com.google.javascript.jscomp.AnalyzerState.Label;
 /**
  * @author arcadoss
  */
-public class ObjectObj implements BaseObj<ObjectObj> {
+public class ObjectObj implements ConvertableObj<ObjectObj>, BaseObj<ObjectObj> {
   private static final int MaxObjCount = 1000;
   Set<Label> value;
 
@@ -16,7 +16,7 @@ public class ObjectObj implements BaseObj<ObjectObj> {
     this.value = new HashSet<Label>();
   }
 
-  private ObjectObj(Set<Label> value) {
+  public ObjectObj(Set<Label> value) {
     this.value = value;
   }
 
@@ -32,5 +32,26 @@ public class ObjectObj implements BaseObj<ObjectObj> {
 
   public Set<Label> getValue() {
     return value;
+  }
+
+  @Override
+  public IntObj toInt() {
+    // todo : implement correct transformation
+    return new IntObj();
+  }
+
+  @Override
+  public BoolObj toBool() {
+    return null;
+  }
+
+  @Override
+  public StrObj toStr() {
+    return null;
+  }
+
+  @Override
+  public ObjectObj toObject() {
+    return null;
   }
 }

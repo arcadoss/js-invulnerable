@@ -5,7 +5,8 @@ package com.google.javascript.jscomp;
  */
 public interface BaseObj<A extends BaseObj> {
   A union(A rValue);
-//  boolean lessThen(A rValue);
 
+//  boolean lessThen(A rValue);
 //  boolean comparableWith(A rValue);
+
 }

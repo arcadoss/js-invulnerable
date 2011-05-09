@@ -6,7 +6,7 @@ import java.util.Set;
 /**
  * @author arcadoss
  */
-public class StrObj implements BaseObj<StrObj> {
+public class StrObj implements ConvertableObj<StrObj> {
   private static final int MaxStrCount = 1000;
   Set<String> value;
 
@@ -14,8 +14,14 @@ public class StrObj implements BaseObj<StrObj> {
     this.value = new HashSet<String>();
   }
 
-  private StrObj(Set<String> value) {
+
+  public StrObj(Set<String> value) {
     this.value = value;
+  }
+
+  public StrObj(String value) {
+    this.value = new HashSet<String>();
+    this.value.add(value);
   }
 
   @Override
@@ -30,5 +36,26 @@ public class StrObj implements BaseObj<StrObj> {
 
   public Set<String> getValue() {
     return value;
+  }
+
+  @Override
+  public IntObj toInt() {
+    // todo: implement correct transformation
+    return new IntObj();
+  }
+
+  @Override
+  public BoolObj toBool() {
+    return null;
+  }
+
+  @Override
+  public StrObj toStr() {
+    return null;
+  }
+
+  @Override
+  public ObjectObj toObject() {
+    return null;
   }
 }

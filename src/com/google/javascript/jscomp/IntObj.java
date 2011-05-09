@@ -3,7 +3,7 @@ package com.google.javascript.jscomp;
 /**
  * @author arcadoss
  */
-public class IntObj implements BaseObj<IntObj> {
+public class IntObj implements ConvertableObj<IntObj>, BaseObj<IntObj> {
   private double left;
   private double right;
 
@@ -35,5 +35,32 @@ public class IntObj implements BaseObj<IntObj> {
 
   public double getRight() {
     return right;
+  }
+
+  public static IntObj add(IntObj lInt, IntObj rInt) {
+    double left = Math.min(lInt.getLeft(), rInt.getLeft());
+    double right = Math.max(lInt.getRight(), rInt.getRight());
+
+    return new IntObj(left, right);
+  }
+
+  @Override
+  public IntObj toInt() {
+    return this;
+  }
+
+  @Override
+  public BoolObj toBool() {
+    return null;
+  }
+
+  @Override
+  public StrObj toStr() {
+    return null;
+  }
+
+  @Override
+  public ObjectObj toObject() {
+    return null;
   }
 }

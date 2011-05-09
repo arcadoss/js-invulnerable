@@ -9,8 +9,8 @@ package com.google.javascript.jscomp;
  *
  * @author arcadoss
  */
-public class SimpleObj implements BaseObj<SimpleObj> {
-  private static final int
+public class SimpleObj<A extends SimpleObj> implements BaseObj<A> {
+  public static final int
       BOTTOM = Integer.parseInt("0", 2),
       TOP = Integer.parseInt("1", 2);
 
@@ -20,17 +20,18 @@ public class SimpleObj implements BaseObj<SimpleObj> {
     this.value = BOTTOM;
   }
 
-  private SimpleObj(int value) {
+  public SimpleObj(int value) {
     this.value = value;
-  }
-
-  @Override
-  public SimpleObj union(SimpleObj rValue) {
-    int newValue = this.value | rValue.getValue();
-    return new SimpleObj(newValue);
   }
 
   public int getValue() {
     return value;
   }
+
+  @Override
+  public A union(A rValue) {
+    SimpleObj out = new SimpleObj((this.value == TOP || rValue.getValue() == TOP) ? TOP : BOTTOM);
+    return (A) out;
+  }
 }
+

@@ -1,7 +1,5 @@
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.graph.DiGraph;
-
 import java.util.*;
 
 /**
@@ -18,6 +16,12 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     this.marker = marker;
   }
 
+  public AnalyzerState(AnalyzerState input) {
+    this.store = new Store(input.getStore());
+    this.stack = new Stack(input.getStack());
+    this.marker = new Marker(input.getMarker());
+  }
+
   /**
    * @author arcadoss
    */
@@ -32,10 +36,22 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       this.store = store;
     }
 
+    public Store(Store store) {
+      this.store = new HashMap<Label, AbsObject>(store.getStore());
+    }
+
     @Override
     public Store union(Store rValue) {
       Map<Label, AbsObject> newStore = joinMaps(store, rValue.getStore());
       return new Store(newStore);
+    }
+
+    public boolean contains(Label label) {
+      return this.store.containsKey(label);
+    }
+
+    public AbsObject get(Label label) {
+      return this.store.get(label);
     }
 
     public Map<Label, AbsObject> getStore() {
@@ -68,6 +84,11 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     private Stack(Map<String, Value> tempValues, Set<ExecutionContext> context) {
       this.tempValues = tempValues;
       this.context = context;
+    }
+
+    public Stack(Stack stack) {
+      this.tempValues = new HashMap<String, Value>(stack.getTempValues());
+      this.context = new HashSet<ExecutionContext>(stack.getContext());
     }
 
     @Override
@@ -119,6 +140,10 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       this.markers = set;
     }
 
+    public Marker(Marker marker) {
+      this.markers = new HashSet<MyFlowGraph.Branch>(marker.getMarkers());
+    }
+
     @Override
     public Marker union(Marker rValue) {
       Set<MyFlowGraph.Branch> set = joinSets(markers, rValue.getMarkers());
@@ -128,6 +153,11 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     public Set<MyFlowGraph.Branch> getMarkers() {
       return markers;
     }
+
+    public void toUncond() {
+      markers.clear();
+      markers.add(MyFlowGraph.Branch.UNCOND);
+    }
   }
 
   /**
@@ -135,84 +165,13 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
    */
   public static class Label {
     int label;
-  }
 
-  /**
-   * @author arcadoss
-   */
-  public static class Value implements BaseObj<Value> {
-    //    todo: add unknown here ?
-    static final int typeCount = 6;
-    BaseObj undefVal;
-    BaseObj nullVal;
-    BaseObj boolVal;
-    BaseObj numVal;
-    BaseObj strVal;
-    BaseObj objVal;
-
-    List<BaseObj> values;
-
-    public Value() {
-      undefVal = new SimpleObj();
-      nullVal = new SimpleObj();
-      boolVal = new BoolObj();
-      numVal = new IntObj();
-      strVal = new StrObj();
-      objVal = new ObjectObj();
-      values = makeList(undefVal, nullVal, boolVal, numVal, strVal, objVal);
+    public Label(int label) {
+      this.label = label;
     }
 
-    private Value(BaseObj undefVal, BaseObj nullVal, BaseObj boolVal, BaseObj numVal, BaseObj strVal, BaseObj objVal) {
-      this.undefVal = undefVal;
-      this.nullVal = nullVal;
-      this.boolVal = boolVal;
-      this.numVal = numVal;
-      this.strVal = strVal;
-      this.objVal = objVal;
-      this.values = makeList(undefVal, nullVal, boolVal, numVal, strVal, objVal);
-    }
-
-    private Value(List<BaseObj> newValues) {
-      if (newValues.size() != typeCount) {
-        throw new IllegalArgumentException("Trying initialize Value type with wrong arguments");
-      }
-
-      undefVal = newValues.get(0);
-      nullVal = newValues.get(1);
-      boolVal = newValues.get(2);
-      numVal = newValues.get(3);
-      strVal = newValues.get(4);
-      objVal = newValues.get(5);
-      values = newValues;
-    }
-
-    @Override
-    public Value union(Value rValue) {
-      Iterator<BaseObj> iter1 = values.iterator();
-      Iterator<BaseObj> iter2 = rValue.getValues().iterator();
-      List<BaseObj> newValues = new ArrayList<BaseObj>();
-
-      while (iter1.hasNext()) {
-        newValues.add(iter1.next().union(iter2.next()));
-      }
-
-      Value out = new Value(newValues);
-      return out;
-    }
-
-    public List<BaseObj> getValues() {
-      return values;
-    }
-
-    private static List<BaseObj> makeList(BaseObj undefVal, BaseObj nullVal, BaseObj boolVal, BaseObj numVal, BaseObj strVal, BaseObj objVal) {
-      List<BaseObj> out = new ArrayList<BaseObj>();
-      out.add(undefVal);
-      out.add(nullVal);
-      out.add(boolVal);
-      out.add(numVal);
-      out.add(strVal);
-      out.add(objVal);
-      return out;
+    public int get() {
+      return label;
     }
   }
 
@@ -224,59 +183,32 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     Label thisObj;
     Label varObj;
 
+    public LinkedList<Label> getScopeChain() {
+      return scopeChain;
+    }
+
+    public Label getThisObj() {
+      return thisObj;
+    }
+
+    public Label getVarObj() {
+      return varObj;
+    }
+
     //todo : initialize objects here
   }
 
   /**
    * @author arcadoss
    */
-  public static class AbsObject implements BaseObj<AbsObject> {
-    Map<String, Property> properties;
-    Set<LinkedList<Label>> scopeChains;
-    boolean isFunction;
-    DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> functionEntry;
-
-    public AbsObject() {
-      this.properties = new HashMap<String, Property>();
-      this.scopeChains = new HashSet<LinkedList<Label>>();
-      this.isFunction = false;
-      this.functionEntry = null;
-    }
-
-    private AbsObject(Map<String, Property> properties, Set<LinkedList<Label>> scopeChains) {
-      this.properties = properties;
-      this.scopeChains = scopeChains;
-    }
-
-    @Override
-    public AbsObject union(AbsObject rValue) {
-      Map<String, Property> newProp = joinMaps(properties, rValue.getProperties());
-      Set<LinkedList<Label>> newChains = joinSets(scopeChains, rValue.getScopeChains());
-
-      return new AbsObject(newProp, newChains);
-    }
-
-    public Map<String, Property> getProperties() {
-      return properties;
-    }
-
-    public Set<LinkedList<Label>> getScopeChains() {
-      return scopeChains;
-    }
-  }
-
-  /**
-   * @author arcadoss
-   */
   public static class Property implements BaseObj<Property> {
-    private static final int PropCount = 5;
-    Value value;
-    BaseObj absent;
-    BaseObj readOnly;
-    BaseObj dontDelete;
-    BaseObj dontEnum;
-    BaseObj modified;
-    List<BaseObj> properties;
+    private static final int PropCount = 4;
+    private Value value;
+    private BaseObj absent;
+    private BaseObj readOnly;
+    private BaseObj dontDelete;
+    private BaseObj dontEnum;
+    private List<BaseObj> properties;
 
     public Property() {
       value = new Value();
@@ -284,12 +216,21 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       readOnly = new BoolObj();
       dontDelete = new BoolObj();
       dontEnum = new BoolObj();
-      modified = new SimpleObj();
 
-      properties = makeList(absent, readOnly, dontDelete, dontEnum, modified);
+      properties = makeList(absent, readOnly, dontDelete, dontEnum);
     }
 
-    private Property(Value value, List<BaseObj> properties) {
+    public Property(Value value) {
+      this.value = value;
+      absent = new SimpleObj(SimpleObj.BOTTOM);
+      readOnly = new BoolObj(BoolObj.FALSE);
+      dontDelete = new BoolObj(BoolObj.FALSE);
+      dontEnum = new BoolObj(BoolObj.FALSE);
+
+      properties = makeList(absent, readOnly, dontDelete, dontEnum);
+    }
+
+    public Property(Value value, List<BaseObj> properties) {
       if (properties.size() != PropCount) {
         throw new IllegalArgumentException("Trying to initialize Property object with wrong parameters");
       }
@@ -298,7 +239,6 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       this.readOnly = properties.get(1);
       this.dontDelete = properties.get(2);
       this.dontEnum = properties.get(3);
-      this.modified = properties.get(4);
       this.properties = properties;
     }
 
@@ -325,14 +265,13 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
       return properties;
     }
 
-    private static List<BaseObj> makeList(BaseObj absent, BaseObj readOnly, BaseObj dnd, BaseObj dne, BaseObj modified) {
+    private static List<BaseObj> makeList(BaseObj absent, BaseObj readOnly, BaseObj dnd, BaseObj dne) {
       List<BaseObj> out = new ArrayList<BaseObj>(PropCount);
 
       out.add(absent);
       out.add(readOnly);
       out.add(dnd);
       out.add(dne);
-      out.add(modified);
 
       return out;
     }
@@ -377,7 +316,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
   }
 
 
-  private static <K, V extends BaseObj<V>> Map<K, V> joinMaps(Map<K, V> map1, Map<K, V> map2) {
+  public static <K, V extends BaseObj<V>> Map<K, V> joinMaps(Map<K, V> map1, Map<K, V> map2) {
     Map<K, V> out = new HashMap(map1);
 
     Set<Map.Entry<K, V>> rMap = map2.entrySet();
@@ -393,7 +332,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     return out;
   }
 
-  private static <T> Set<T> joinSets(Set<T> context1, Set<T> context2) {
+  public static <T> Set<T> joinSets(Set<T> context1, Set<T> context2) {
     Set<T> out = new HashSet<T>(context1);
     out.addAll(context2);
     return out;
