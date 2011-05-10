@@ -124,6 +124,19 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     public void setExeptRes(Value exeptRes) {
       this.exeptRes = exeptRes;
     }
+
+    public Value getTemp(String name) {
+      if (tempValues.containsKey(name)) {
+        return tempValues.get(name);
+      }
+
+      // todo: it shold be removed after all operations would be implemented
+      return  new Value();
+    }
+
+    public void putTemp(String name, Value val) {
+      tempValues.put(name, val);
+    }
   }
 
   /**
@@ -134,6 +147,7 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
 
     public Marker() {
       this.markers = new HashSet<MyFlowGraph.Branch>();
+      this.markers.add(MyFlowGraph.Branch.UNCOND);
     }
 
     public Marker(Set<MyFlowGraph.Branch> set) {
@@ -155,8 +169,10 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
     }
 
     public void toUncond() {
-      markers.clear();
-      markers.add(MyFlowGraph.Branch.UNCOND);
+      if (markers.size() != 1 && markers.contains(MyFlowGraph.Branch.UNCOND)) {
+        markers.clear();
+        markers.add(MyFlowGraph.Branch.UNCOND);
+      }
     }
   }
 
@@ -172,6 +188,11 @@ class AnalyzerState implements LatticeElement, BaseObj<AnalyzerState> {
 
     public int get() {
       return label;
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(label);
     }
   }
 
