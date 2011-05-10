@@ -156,6 +156,9 @@ public class MyNode {
     // (v) represent with statement
     WITH,
 
+    // (v) represent the end of with statement
+    AFTER_WITH,
+
     // represent binary operations
     // (v1, v2, v3) v3 = v1 BIN_OP v2
     BITOR, BITXOR, BITAND,

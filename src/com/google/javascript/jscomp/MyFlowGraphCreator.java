@@ -679,12 +679,13 @@ public class MyFlowGraphCreator implements CompilerPass {
     MySubproduct varNode = readNameOrRebuild(varBlock);
     MySubproduct exprNode = rebuild(exprBlock);
     DiGraph.DiGraphNode withNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.WITH, varNode));
+    DiGraph.DiGraphNode afterWithNode = flowGraph.createDirectedGraphNode(new MyNode(MyNode.Type.AFTER_WITH));
 
     out.setFirst(varNode.getFirst());
     varNode.connectLeafsTo(withNode);
-    connect(withNode, MyFlowGraph.Branch.TRUE, exprNode.getFirst());
-    out.addLeaf(withNode, MyFlowGraph.Branch.FALSE);
-    exprNode.connectLeafsTo(withNode);
+    connect(withNode, MyFlowGraph.Branch.UNCOND, exprNode.getFirst());
+    exprNode.connectLeafsTo(afterWithNode);
+    out.addLeaf(afterWithNode, MyFlowGraph.Branch.UNCOND);
 
     return out;
   }
