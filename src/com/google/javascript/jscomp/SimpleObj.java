@@ -33,5 +33,10 @@ public class SimpleObj<A extends SimpleObj> implements BaseObj<A> {
     SimpleObj out = new SimpleObj((this.value == TOP || rValue.getValue() == TOP) ? TOP : BOTTOM);
     return (A) out;
   }
+
+  @Override
+  public String toString() {
+    return (value == TOP) ? "T" : "_";
+  }
 }
 

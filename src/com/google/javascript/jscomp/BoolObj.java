@@ -12,6 +12,7 @@ package com.google.javascript.jscomp;
  * @author arcadoss
  */
 public class BoolObj implements ConvertableObj<BoolObj>, BaseObj<BoolObj> {
+  private static final String[] strNames = {"_", "false", "true", "T"};
   public static final int
       BOTTOM = Integer.parseInt("00", 2),
       TRUE = Integer.parseInt("10", 2),
@@ -60,5 +61,10 @@ public class BoolObj implements ConvertableObj<BoolObj>, BaseObj<BoolObj> {
   @Override
   public ObjectObj toObject() {
     return null;
+  }
+
+  @Override
+  public String toString() {
+    return strNames[value];
   }
 }

@@ -58,4 +58,19 @@ public class StrObj implements ConvertableObj<StrObj> {
   public ObjectObj toObject() {
     return null;
   }
+
+  @Override
+  public String toString() {
+    StringBuilder builder = new StringBuilder();
+
+    builder.append("{");
+    for (String str : value) {
+      builder.append(" '");
+      builder.append(str);
+      builder.append("' ");
+    }
+    builder.append("}");
+
+    return builder.toString();
+  }
 }

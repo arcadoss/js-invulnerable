@@ -69,32 +69,32 @@ public class Value implements BaseObj<Value> {
     return out;
   }
 
+  public UndefObj getUndefVal() {
+    return (UndefObj) undefVal;
+  }
+
+  public NullObj getNullVal() {
+    return (NullObj) nullVal;
+  }
+
+  public BoolObj getBoolVal() {
+    return (BoolObj) boolVal;
+  }
+
+  public IntObj getNumVal() {
+    return (IntObj) numVal;
+  }
+
+  public StrObj getStrVal() {
+    return (StrObj) strVal;
+  }
+
+  public ObjectObj getObjVal() {
+    return (ObjectObj) objVal;
+  }
+
   public List<ConvertableObj> getValues() {
     return values;
-  }
-
-  public BaseObj getUndefVal() {
-    return undefVal;
-  }
-
-  public BaseObj getNullVal() {
-    return nullVal;
-  }
-
-  public BaseObj getBoolVal() {
-    return boolVal;
-  }
-
-  public BaseObj getNumVal() {
-    return numVal;
-  }
-
-  public BaseObj getStrVal() {
-    return strVal;
-  }
-
-  public BaseObj getObjVal() {
-    return objVal;
   }
 
   private static List<ConvertableObj> makeList(ConvertableObj undefVal, ConvertableObj nullVal, ConvertableObj boolVal, ConvertableObj numVal, ConvertableObj strVal, ConvertableObj objVal) {
@@ -135,21 +135,26 @@ public class Value implements BaseObj<Value> {
   }
 
   public static Value add(Value lVal, Value rVal) {
-    IntObj lInt = new IntObj();
-    IntObj rInt = new IntObj();
-
-    for (ConvertableObj obj : lVal.getValues()) {
-      lInt.union(obj.toInt());
-    }
-
-    for (ConvertableObj obj : rVal.getValues()) {
-      rInt.union(obj.toInt());
-    }
-
-    return Value.makeInt(IntObj.add(lInt, rInt));
+    return Value.makeInt(IntObj.add(lVal.toInt(), rVal.toInt()));
   }
 
-  private static Value makeInt(IntObj intVal) {
+  public static Value mul(Value lVal, Value rVal) {
+    return Value.makeInt(IntObj.mul(lVal.toInt(), rVal.toInt()));
+  }
+
+  public static Value div(Value lVal, Value rVal) throws UnimplEx {
+    return Value.makeInt(IntObj.div(lVal.toInt(), rVal.toInt()));
+  }
+
+  public static Value sub(Value lVal, Value rVal) {
+    return Value.makeInt(IntObj.sub(lVal.toInt(), rVal.toInt()));
+  }
+
+  public static Value mod(Value lVal, Value rVal) throws UnimplEx {
+    return Value.makeInt(IntObj.mod(lVal.toInt(), rVal.toInt()));
+  }
+
+  public static Value makeInt(IntObj intVal) {
     ConvertableObj undefVal = new UndefObj();
     ConvertableObj nullVal = new NullObj();
     ConvertableObj boolVal = new BoolObj();
@@ -158,5 +163,45 @@ public class Value implements BaseObj<Value> {
 
     Value out = new Value(undefVal, nullVal, boolVal, intVal, strVal, objVal);
     return out;
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder builder = new StringBuilder();
+
+    builder.append("(")
+        .append(undefVal).append(", ")
+        .append(nullVal).append(", ")
+        .append(boolVal).append(", ")
+        .append(numVal).append(", ")
+        .append(strVal).append(", ")
+        .append(objVal)
+        .append(")");
+
+    return builder.toString();
+  }
+
+  private IntObj toInt() {
+    IntObj val = new IntObj();
+
+    for (ConvertableObj obj : values) {
+      val.union(obj.toInt());
+    }
+    return val;
+  }
+
+  public static Value makeStr(StrObj strVal) {
+    ConvertableObj undefVal = new UndefObj();
+    ConvertableObj nullVal = new NullObj();
+    ConvertableObj boolVal = new BoolObj();
+    ConvertableObj intVal = new IntObj();
+    ConvertableObj objVal = new ObjectObj();
+
+    Value out = new Value(undefVal, nullVal, boolVal, intVal, strVal, objVal);
+    return out;
+  }
+
+  public static Value neg(Value lVal) {
+    return Value.makeInt(IntObj.neg(lVal.toInt()));
   }
 }
