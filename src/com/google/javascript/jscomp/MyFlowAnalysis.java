@@ -337,7 +337,9 @@ abstract class MyFlowAnalysis<L extends AnalyzerState> {
               values.add(inNodeState.getOut());
             }
           }
-          state.setIn(joinOp.apply(values));
+          if (!values.isEmpty()) {
+            state.setIn(joinOp.apply(values));
+          }
         }
       }
     }
