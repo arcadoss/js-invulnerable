@@ -21,8 +21,9 @@ public class AnalyzerMemory {
   }
 
   public AnalyzerState.Label createObject() {
-    memory.add(lastUsed++, new AbsObject());
-    return new AnalyzerState.Label(lastUsed);
+    int address = lastUsed++;
+    memory.add(address, new AbsObject());
+    return new AnalyzerState.Label(address);
   }
 
   public AbsObject getObject(AnalyzerState.Label label) {
