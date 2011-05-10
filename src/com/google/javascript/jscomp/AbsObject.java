@@ -13,6 +13,7 @@ public class AbsObject implements BaseObj<AbsObject> {
   boolean isFunction;
   boolean isInternal;
   DiGraph.DiGraphNode<MyNode, MyFlowGraph.Branch> functionEntry;
+  private static final String Prototype = "prototype";
 
   public AbsObject() {
     this.properties = new HashMap<String, AnalyzerState.Property>();
@@ -47,8 +48,17 @@ public class AbsObject implements BaseObj<AbsObject> {
     properties.put(name, value);
   }
 
-  public Value getValue(String name) {
+  public boolean has(String name) {
+    return properties.containsKey(name);
+  }
+
+
+  public Value get(String name) {
     return properties.get(name).getValue();
+  }
+
+  public Value getProto() {
+    return properties.get(Prototype).getValue();
   }
 
   public AnalyzerState call(AnalyzerState in) throws Exception {
@@ -56,9 +66,4 @@ public class AbsObject implements BaseObj<AbsObject> {
   }
 
 
-  private class UnimplEx extends Throwable {
-    public UnimplEx(String s) {
-      super(s);
-    }
-  }
 }
