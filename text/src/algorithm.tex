@@ -1,0 +1,2150 @@
+\subsection{Общее описание}%::{
+\label{sec:howto}
+\subsubsection{Вычисление достижимости}%::{
+\label{sec:reachability}
+Из алгоритмической неразрешимости задачи
+останова машины Тьюринга следует, что невозможно в общем случае
+однозначно ответить на вопрос о достижимости точки программы. 
+Чтобы ответить на этот вопрос с некоторой точностью, необходимо
+вычислить возможные значения условий в операторах ветвления и циклах.
+Для вычисления возможных значений всех переменных в каждой точке
+программы используется \emph{абстрактная интерпретация} --- метод 
+статического анализа, производящий интерпретацию на абстрактной модели,
+построенной по анализируемой программе\cite{Nielson1999}.\\
+Его идея заключается в том, что интерпретация программы производится
+над абстрактным доменом данных. Выбирается он таким образом, чтобы
+содержать достаточно информации для формулирования интересующих
+свойств программы и не приводит к незавершимости анализа.
+
+Далее будет описан алгоритм с рабочим списком, при помощи которого
+производится вычисления и задана абстрактная модель.
+%}::
+\subsubsection{Алгоритм с рабочим списком}%::{
+\label{sec:workList}
+Для описания алгоритма с рабочим списком ниже введены определения из
+теории решеток. Во всех из них под $S$ понимается произвольное
+множество.
+% definitions ::{
+\begin{center}
+  % \begin{minipage}{16cm}
+    \begin{description}
+      \item[Отношение частичного порядка] --- это отношение $\prec\::
+	S \times S \rightarrow \{true, false\}$, обладающее свойством
+	рефлексивности, транзитивности и антисимметричности. Может быть
+	определено не для всех пар множества.
+
+      \item[Частично упорядоченное множество] --- множество, с
+	определенным на нём отношением частичного порядка. Обозначается
+	парой $\left( S, \prec \right)$.
+
+      \item[Верхняя грань] подмножества $T \subset S$ --- это элемент $
+	m \in S$, такой что
+	$
+	\forall \ell \in T\:: \ell \prec m
+	$.
+	Верхняя грань $m$ называется наименьшей, если для любой другой
+	верхней грани $\tilde{m}$ выполнено 
+	$
+	m \prec \tilde{m}
+	$
+
+      \item[Нижняя грань] подмножества $T \subset S$ --- это элемент $
+	m \in S$, такой что
+	$
+	\forall \ell \in T\:: m \prec \ell
+	$.
+	Нижняя грань $m$ называется наибольшей, если для любой другой
+	нижней грани $\tilde{m}$ выполнено 
+	$
+	\tilde{m} \prec m
+	$
+
+      \item[Полная решетка] --- частично упорядоченное множество $(S,
+	\prec)$, такое что любое подмножество из $S$ имеет точную
+	верхнюю и нижнюю грани. Под $\bot$ понимается наименьший
+	элемент $S$, а под $\top$ --- наибольший элемент $S$.
+
+      % \item[Монотонная функция] $f: S_1 \rightarrow S_2$ --- это функция,
+      \item[Монотонная функция] $f: S \rightarrow S$ --- это функция,
+	сохраняющая отношение частичного порядка:
+	\[
+	\forall \ell, \ell' \in S: \ell \prec \ell' \Rightarrow
+	f\left( \ell \right) \prec f\left( \ell' \right)
+	\]
+	Под $\EuScript{M}$ будет пониматься класс монотонных функций $f: S
+	\rightarrow S$.
+
+	% \item [Аддитивная функция] если $\forall \ell, \ell' \in L_1: f(\ell
+	% \sqcup \ell') = f(\ell) \sqcup f(\ell')$
+
+	\item[Неподвижная точка] функции $f: S \rightarrow S$ --- это точка
+	  $\ell$, отображаемая функцией в саму себя: $\ell \in L: f(\ell) =
+	  \ell$.
+
+	\item[Монотонная структура] --- пара $\EuScript{MF} = (L,F)$,
+	  где $L$ --- полная решётка, а $F$ --- множество
+	  монотонных функций.
+
+	\item[Теорема о неподвижных точках] в решетке $L = \left( S, \prec
+	  \right)$ конечной высоты каждая монотонная функция $f \in
+	  \EuScript{M}$ имеет минимальную неподвижную точку:
+	  \[
+	  \begin{cases}
+	    fix(f) &= \bigcup f^{n}(\bot)\\
+	    f(fix(f)) &= fix(f)
+	  \end{cases}
+	  \]
+      \end{description}
+  % \end{minipage}
+\end{center}
+%}::
+% В качестве основы для анализа был взят алгоритм с рабочим списком 
+% из \cite{PPA:2005}, который был выбран из-за его универсальности, 
+% а так же из-за достаточной простоты реализации.
+% Ниже приведено описание алгоритма согласно \cite{PPA:2005}.
+% Для описания алгоритма требуется определить еще одну сущность 
+
+Анализ программы с графом потока управления $G=(V,E)$ при помощи
+монотонной структуры $\EuScript{MF}$ задается шестёркой
+$AnalysisInstance$:
+% AnalysisInstance definition ::{
+\[
+\begin{aligned}
+  AnalysisInstance &= (L, F, E, I, i, t, M, m, w) \\
+  L\: &-\: \mbox{\parbox[t]{11cm}{полная решетка $(S, \prec)$ из
+    $\EuScript{MF}$}} \\
+  F\: &-\: \mbox{\parbox[t]{11cm}{множество монотонных функций из
+  $\EuScript{MF}$, называемых функциями переноса.}} \\
+  E\: &-\: \mbox{\parbox[t]{11cm}{конечное множество пар $(v_1,
+  v_2)$, соответстующих рёбрам графа потока управления анализируемой
+  программы при решении прямых задач, и инвертированным ребрам при
+  решении обратных задач}} \\
+  I\: &-\: \mbox{\parbox[t]{11cm}{конечное множество начальных
+    состояний графа потока управления анализируемой программы}} \\
+  i\: &-\: \mbox{\parbox[t]{11cm}{информация, известная
+    в точках программы, соответствующих начальным состояниям, $i \in L$}} \\
+  t\: &-\: \mbox{\parbox[t]{11cm}{отображение $t: V \rightarrow F$,
+    ставит в соответствие точке программы функцию перевода в следующее
+    состояние (функцию переноса)}} \\
+\end{aligned}
+\]
+%}::
+Результатом работы алгоритма являются минимальные неподвижные 
+точки решетки $L$ для функций из $F$. Для описания алгоритма
+дополнительно вводятся следующие обозначения:
+% additional definitions ::{
+\begin{center}
+  \begin{minipage}{15cm}
+    \[
+    \begin{aligned}
+      fst \:&-\:  \mbox{\parbox[t]{14cm}{функция $fst : S^* \rightarrow S$ возвращает
+	первый элемент входного списка}} \\
+      snd \:&-\:  \mbox{\parbox[t]{14cm}{функция $snd : S^* \rightarrow S$
+      возвращает второй элемент входного списка}} \\
+      head \:&-\:  \mbox{\parbox[t]{14cm}{функция $head : S^* \rightarrow S$ возвращает
+      голову (первый элемент) входного списка}} \\
+      tail \:&-\:  \mbox{\parbox[t]{14cm}{функция $tail : S^* \rightarrow S$ возвращает
+      хвост (все кроме первого элемента) входного списка}} \\
+      cons \:&-\:  \mbox{\parbox[t]{14cm}{функция $cons : S^* \times S
+      \rightarrow S^*$ добавляет во входной список новый элемент}} \\
+      prev \:&-\:  \mbox{\parbox[t]{14cm}{функция $prev : V \rightarrow P$ возвращает
+      точку программы перед узлом графа потока управления}} \\
+      post \:&-\:  \mbox{\parbox[t]{14cm}{функция $post : V \rightarrow P$ возвращает
+      точку программы после узла графа потока управления}} \\
+      put \:&-\:  \mbox{\parbox[t]{14cm}{функция изменяет связанное с точкой
+      программы состояние}} \\
+      get \:&-\:  \mbox{\parbox[t]{14cm}{функция возвращает связанное с точкой
+      программы состояние}} \\
+      f_a \:&-\:  \mbox{\parbox[t]{14cm}{функция переноса соответствующая вершине
+      $a$: $f_a = t(a) : V \rightarrow F$.}}
+    \end{aligned} 
+    \]
+  \end{minipage}
+\end{center}
+%}::
+% working list algorithm ::{
+~\\
+\textbf{Алгоритм:}
+\begin{enumerate}
+    \item Инициализация:\\
+\texttt{\raggedright
+$W \leftarrow nil$ \\
+for $(v_1, v_2)$ in $F$ do \\
+~~~~$W \leftarrow cons((v_1, v_2), W)$ \\
+for $v$ in $V$ \\
+~~~~if $v \in I$ then \\
+~~~~~~~~$put(prev(v), i)$ \\
+~~~~~~~~$put(post(v), \bot)$ \\
+~~~~else \\
+~~~~~~~~$put(prev(v), \bot)$ \\
+~~~~~~~~$put(post(v), \bot)$ \\
+}
+    \item Пополнение информации:\\
+\texttt{\raggedright
+while $W \ne nil$ do\\
+~~~~$a \leftarrow fst(head(W))$ \\
+~~~~$b \leftarrow snd(head(W))$ \\
+~~~~$W \leftarrow tail(W)$\\
+~~~~$l = f_a(get(prev(a)))$\\
+~~~~$put(post(a), l)$\\
+~~~~if $(get(pre(b)) \prec l)$ then\\
+~~~~~~~~$put(pre(b), get(pre(b)) \sqcup l)$\\
+~~~~~~~~for $(b, c)$ in $F$ do\\
+~~~~~~~~~~~~$W \leftarrow cons((b, c), W)$
+}
+    \item Сохранение результата:\\
+\texttt{\raggedright
+for $v$ in $V$ do\\
+~~~~$MFP_{\circ}(v) \leftarrow get(pre(v))$\\
+~~~~$MFP_{\bullet}(v) \leftarrow get(post(v))$\\
+}
+\end{enumerate}
+~\\
+%}::
+% working list properties ::{
+\textbf{Свойства алгоритма:}
+\begin{itemize}
+    \item Завершаемость\\
+      На этапах 1 и 3 алгоритма итерация производится над конечными
+      множествами. В начале второго этапа в $W$ находится конечное
+      число элементов, и в каждой итерации цикла либо длина списка $W$ 
+      уменьшается на 1 либо происходит уточнение информации
+      и увеличение длины списка на конечное число элементов. Из-за
+      наличия у решётки верхней грани, информация может уточняться
+      только конечное число раз, поэтому второй этап завершим.
+    \item Корректность\\
+      На первом этапе происходит инициализация начальными значениями.
+      На втором этапе происходит вычисление неподвижной точки для
+      каждой вершины $v \in V$ --- значение $get(prev(v))$ после
+      последнего уточнения и будет являться неподвижной точкой.
+      На третьем этапе происходит сохранение результатов работы 
+      алгоритма.
+\end{itemize}
+Формальное доказательство завершаемости и корректности приведено в
+\cite{Nielson1999}.
+%}::
+
+В данной работе используется модифицированный алгоритм с рабочим
+списком. В него внесены следующие изменения:
+\begin{itemize}
+  \item Добавлено дополнительное предусловие на распространения
+    информации между вершинами графа потока управления.  Для того,
+    чтобы информация распространилась по ребру $(a, b)$, необходимо
+    чтобы метка, которым оно помечено, присутствовала среди возможных
+    меток. Множество возможных меток извлекается из состояния
+    программы в точке после вершины $a$. Например, в множество меток
+    можно включить метки возбуждения исключения, истинности и ложности
+    условия в операциях ветвления.
+
+  \item Добавлено условие завершения анализа. Алгоритм завершает свою
+    работу при достижении вершины, достижимость которой нужно
+    проверить. Проход через такую вершину означает наличие вычисления
+    на моделе приводящего в заданную точку программы.
+
+  \item Результатом работы алгоритма не всегда является неподвижная
+    точка. При попадании в проверяемую вершину работа алгоритма
+    завершается. Состояния при этом содержат более точную информацию.
+\end{itemize}
+
+Для задания анализа с изменённым алгоритмом необходимо в
+дополнение к $AnalysisInstance$ описать еще 4 элемента:
+% ReachAnalysis definition ::{
+\[
+\begin{aligned}
+  ReachAnalysis &= (L, F, E, I, i, t, M, m, w, Z) \\
+  M\: &-\: \mbox{\parbox[t]{11cm}{множество меток рёбер для задания
+    условий прохождения потока по ребру}} \\ 
+  m\: &-\: \mbox{\parbox[t]{11cm}{отображение $m: V \times V
+    \rightarrow M$, размечающее рёбра графа потока}} \\
+  w\: &-\: \mbox{\parbox[t]{11cm}{отображение $w: L \rightarrow 2^M$,
+    извлекающее из рёшетки информацию по рёбрам с какими метками пойдет
+    поток управления}} \\
+  Z\: &-\: \mbox{\parbox[t]{11cm}{множество вершин, достижимость
+  которых необходимо проверить}} \\ 
+\end{aligned}
+\]%}::
+Модификация затронула только 2 этап алгоритма. Различия между
+классическим и изменённым алгоритмами приведены в таблице
+\ref{tab:worklist}.
+% Таблица -- различия между алгоритмами::{
+\begin{table}
+  \centering
+\begin{tabular}[h]{|c|c|}
+  \hline
+  Классический & Модифицированный 
+  \\[\smallskipamount]\hline 
+  \begin{minipage}[t]{7cm}
+\texttt{\raggedright
+while $W \ne nil$ do\\
+~~~~$a \leftarrow fst(head(W))$ \\
+~~~~$b \leftarrow snd(head(W))$ \\
+~~~~$W \leftarrow tail(W)$\\
+~~~~$l = f_a(get(prev(a)))$\\
+~~~~$put(post(a), l)$\\
+~~~~if $(get(pre(b)) \prec l)$ then\\
+~~~~~~~~$put(pre(b), get(pre(b)) \sqcup l)$\\
+~~~~~~~~for $(b, c)$ in $F$ do\\
+~~~~~~~~~~~~$W \leftarrow cons((b, c), W)$
+}
+  \end{minipage}
+  &
+  \begin{minipage}[t]{8cm}
+\texttt{\raggedright
+while $W \ne nil$ do\\
+~~~~$a \leftarrow fst(head(W))$ \\
+~~~~\underline{if $(a \in Z)$ then break}\\
+~~~~$b \leftarrow snd(head(W))$ \\
+~~~~$W \leftarrow tail(W)$\\
+~~~~$l = f_a(get(prev(a)))$\\
+~~~~$put(post(a), l)$\\
+~~~~\underline{if $(m(a, b) \in w(l) \land get(pre(b)) \prec l)$ then}\\
+~~~~~~~~$put(pre(b), get(pre(b)) \sqcup l)$\\
+~~~~~~~~for $(b, c)$ in $F$ do\\
+~~~~~~~~~~~~\underline{if $((b, c) \notin W)$ then}\\
+~~~~~~~~~~~~~~~~$W \leftarrow cons((b, c), W)$
+}
+  \end{minipage}
+  \\[\smallskipamount]\hline 
+\end{tabular}
+
+  \caption{Различие между классическим и изменённым алгоритмами
+  с рабочим списком} 
+  \label{tab:worklist}
+\end{table}
+%}::
+% Свойства изменённого алгоритма::{
+\\~\\
+\textbf{Свойства изменённого алгоритма:}
+\begin{itemize}
+  \item Завершаемость\\
+    Как и в классическом варианте, на каждой итерации на втором этапе
+    длина рабочего списка уменьшается на 1. Однако для уточнения
+    информации и пополнения рабочего списка должно быть выполнено
+    дополнительное предусловие. Вычисление этого предусловия не влияет
+    на завершаемость алгоритма. Поскольку классический алгоритм
+    завершим и дополнительное условие не увеличивает число добавляемых
+    в рабочий список рёбер, изменённый алгоритм так же завершим.
+  \item Корректность\\
+    Будет ли результатом работы этого алгоритма неподвижная точка
+    функций? Кажется нет, но это и не нужно. Если во время работы
+    алгоритма встречена точка, достижимость которой нужно проверить,
+    то нужно тут же остановиться. При этом не будет получена
+    неподвижная точка, но будет получена более точная информация о
+    том, при каких значениях достигается эта точка.
+\end{itemize}%}::
+%}::
+%}::
+\subsection{Инструкции графа потока управления}%::{
+\label{sec:cfgbuild}
+Для построения абстрактного синтаксического дерева $T$ с множеством
+вершин $K_1$ используется программа Rhino\cite{rhino}. В процессе
+обхода дерева $T$ строится граф потока управления $G(V, E)$ из
+множества вершин $K_2$, описанных в таблице~\ref{tab:graph_nodes}.
+Аргументами операций, соответствующих вершинам из этого множества
+являются программные и временные переменные. Последние введены для
+сокращения множества вершин и упрощения семантики. Более подробно они
+будут описаны в главе~\ref{sec:trans_func}.
+% Вершины графа потока управления ::{
+\begin{center}
+% header ::{
+  \begin{longtable}{|>{\small\ttfamily}p{5cm}p{10cm}|}
+    \caption{Вершины графа потока управления}
+    \\[\smallskipamount]\hline 
+  \endfirsthead
+    \caption{Вершины графа потока управления \emph{(продолжение)}}
+    \\[\smallskipamount]\hline 
+  \endhead
+    \hline
+
+  \endlastfoot
+    \hline 
+  \endfoot
+  \label{tab:graph_nodes}
+%}::
+  SKIP &%::{
+  Пустая команда. Никак не влияет на ход выполнения.
+  \\[\smallskipamount]
+%}::
+  PSEUDO\_ROOT &%::{
+  Псевдо-вершина представляющая входную точку программы.
+  \\[\smallskipamount]
+%}::
+  PSEUDO\_EXIT &%::{
+  Псевдо-вершина представляющая точку выхода.
+  \\[\smallskipamount]
+%}::
+  DECLARE\_VARIABLE(x) &%::{
+  Объявление программной переменной с именем \texttt{x}.
+  \\[\smallskipamount]
+%}::
+  READ\_VARIABLE(x, v) &%::{
+  Чтение значения программной переменной с именем \texttt{x} во временную
+  переменную с именем \texttt{v}.
+  \\[\smallskipamount]
+%}::
+  WRITE\_VARIABLE(v, x) &%::{
+  Запись значения временной переменной с именем \texttt{v} в
+  программную переменную с именем \texttt{v}.
+  \\[\smallskipamount]
+%}::
+  CONSTANT(c, v) &%::{
+  Запись константы \texttt{c} во временную переменную \texttt{v}.
+  \\[\smallskipamount]
+%}::
+  READ\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3}) &%::{
+  Чтение атрибута с именем содержащимся во временной переменной
+  \texttt{v\ts{2}} из объекта находящегося в \texttt{v\ts{1}} в переменную
+  \texttt{v\ts{3}}.
+  \\[\smallskipamount]
+%}::
+  WRITE\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3}) &%::{
+  Запись в атрибут с именем содержащимся во временной переменной
+  \texttt{v\ts{2}} объекта находящегося в \texttt{v\ts{1}} переменной
+  \texttt{v\ts{3}}.
+  \\[\smallskipamount]
+%}::
+  DELETE\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3}) &%::{
+  Удаление атрибута с именем содержащимся во временной переменной
+  \texttt{v\ts{2}} из объекта находящегося в \texttt{v\ts{1}}. Результат
+  операции записывается в переменную \texttt{v\ts{3}}.
+  \\[\smallskipamount]
+%}::
+  IF(v) &%::{
+  Операция ветвления.
+  \\[\smallskipamount]
+%}::
+  ENTRY(f, x\ts{1}, ... x\ts{n}) &%::{
+  Используется как уникальная метка входа в функцию с необязательным
+  именем \texttt{f} и параметрами \texttt{x\ts{1}, \ldots, x\ts{n}}.
+  \\[\smallskipamount]
+%}::
+  EXIT &%::{
+  Используется как уникальная метка выхода из функции.
+  \\[\smallskipamount]
+%}::
+  EXIT\_EXC &%::{
+  Используется как уникальная метка выхода из функции в результате
+  исключения.
+  \\[\smallskipamount]
+%}::
+  CALL(w, v\ts{0}, ... v\ts{n}) &%::{
+  Вызов функции с именем \texttt{w} и аргументами \texttt{v\ts{0}, ... v\ts{n}}.
+  Нулевой аргумент содержит значение \texttt{this}.
+  \\[\smallskipamount]
+%}::
+  AFTER\_CALL(v) &%::{
+  Используется как точка возврата из вызова функции или конструктора.
+  В \texttt{v} записывается результат вызова или созданный объект.
+  \\[\smallskipamount]
+%}::
+  CONSTRUCT(w, v\ts{0}, ... v\ts{n}) &%::{
+  Инструкция создания объекта с именем \texttt{w}, инициализированного
+  аргументами \texttt{v\ts{0}, ... v\ts{n}}. В \texttt{v\ts{0}} содержится значение
+  \texttt{this}.
+  \\[\smallskipamount]
+%}::
+  RETURN(v) &%::{
+  Инструкция возврата из функции значения, содержащегося во временной
+  переменной \texttt{v}.
+  \\[\smallskipamount]
+%}::
+  THROW(v) &%::{
+  Возбуждение исключения. Временная переменная \texttt{v} содержит
+  передаваемый с исключением объект.
+  \\[\smallskipamount]
+%}::
+  CATCH(x) &%::{
+  Блок обработки исключений. Программная переменная с именем
+  \texttt{x} содержит переданный с исключением объект.
+  \\[\smallskipamount]
+%}::
+  FOR\_IN(v\ts{1}, v\ts{2}) &%::{
+  Цикл поочередно записывающий во временную переменную
+  \texttt{v\ts{1}} атрибуты объекта, находящегося в переменной
+  \texttt{v\ts{2}}.
+  \\[\smallskipamount]
+%}::
+  WITH(v) &%::{
+  Инструкция изменения области видимости. На вершину стековых фреймов
+  помещается объект, лежащий во временной переменной \texttt{v}.
+  \\[\smallskipamount]
+%}::
+  AFTER\_WITH &%::{
+  Инструкция изменения области видимости. Снимает объект с вершины
+  стековых фреймов.
+  \\[\smallskipamount]
+%}::
+  UNOP(v\ts{1}, v\ts{2}) &%::{
+  Унарные операции \texttt{NEG, POS, BITNOT, NOT, INSTANCEOF, TYPEOF,
+  INC, DEC}. Временная переменная \texttt{v\ts{1}} содержит операнд, а в
+  \texttt{v\ts{2}} записывается результат.
+  \\[\smallskipamount]
+%}::
+  BINOP(v\ts{1}, v\ts{2}, v\ts{3}) &%::{
+  Бинарные операции \texttt{ BITOR, BITXOR, BITAND, AND, OR, LSH, RSH,
+  URSH, ADD, SUB, MUL, DIV, MOD, EQ, NE, SHNE, SHEQ, LT, LE, GT, GE,
+  IN}. Временные переменные \texttt{v\ts{1}} и \texttt{v\ts{2}} содержат
+  операнды, а в \texttt{v\ts{3}} записывается результат.
+  \\[\smallskipamount]
+%}::
+  HOOK(v\ts{1}, v\ts{2}, v\ts{3}, v\ts{4}) &%::{
+  Тернарная операция.
+%}::
+\end{longtable}
+\end{center}
+%}::
+% Описание преобразования абстрактного синтаксического дерева в граф потока управления.
+% IF
+% WHILE
+% DO
+% FOR
+% SWITCH
+% BREAK
+% CONTINUE
+% EMPTY
+% SCRIPT
+% BLOCK
+% EXPR\_RESULT
+% VAR
+% STRING
+% NUMBER
+% NAME
+% GETPROP
+% GETELEM
+% WITH
+% NEW
+% ASSIGN
+% ASSIGN\_BITOR
+% ASSIGN\_BITXOR
+% ASSIGN\_BITAND
+% ASSIGN\_LSH
+% ASSIGN\_RSH
+% ASSIGN\_URSH
+% ASSIGN\_ADD
+% ASSIGN\_SUB
+% ASSIGN\_MUL
+% ASSIGN\_DIV
+% ASSIGN\_MOD
+% CALL
+% FUNCTION
+% RETURN
+% NEG
+% POS
+% BITNOT
+% NOT
+% TYPEOF
+% DEC
+% INC
+% BITOR
+% BITXOR
+% BITAND
+% AND
+% OR
+% EQ
+% NE
+% SHEQ
+% SHNE
+% LT
+% LE
+% GT
+% GE
+% LSH
+% RSH
+% URSH
+% ADD
+% SUB
+% MUL
+% DIV
+% MOD
+% INSTANCEOF
+% IN
+% HOOK
+% THIS
+% NULL
+% TRUE
+% FALSE
+% TRY
+% THROW
+% CATCH
+
+Для задания направления распространения потока управления
+рёбра размечены элементами множества меток \texttt{M}. Это множество
+определено следующим образом:
+% Marker definition::{
+\[
+\begin{aligned}
+  \texttt{M} =\;&\{ \\
+  & & true, && \mpb{12cm}{--- при истинности условия в
+  операторе ветвления} \\ 
+  & & false, && \mpb{12cm}{--- при ложости условия в операторе
+  ветвления } \\
+  & & except, && \mpb{12cm}{--- при возбуждении исключения} \\
+  & & uncond && \mpb{12cm}{--- без ограничений} \\
+  &\} & \\ 
+\end{aligned}
+\]
+Разметка задается функцией $m : V \times V \rightarrow \mathtt{M}$,
+которая неявно описывается при построении графа потока.
+%}::
+
+%}::
+\subsection{Абстракция данных}%::{
+\label{sec:abstraction}
+Двумя фундаментальными типами данных в языке JavaScript являются
+элементарный тип и объект. Из-за перечисленных ниже особенностей языка
+в моделе эти два фундаментальных типа обобщены в один -- абстрактный
+объект \texttt{AbsObject}.
+% особенности языка ::{
+\begin{itemize}
+  \item Явно заданные строковые литералы и числа при обращении к ним
+    могут неявно приводятся к объектам соответствующего типа.
+  \item Все объекты передаются по ссылке.
+  \item Все переменные являются членами глобального объекта.
+\end{itemize}%}::
+
+К элементарным типам относятся \texttt{Undefined}, \texttt{Null},
+\texttt{Boolean}, \texttt{String}, \texttt{Number}. Тип
+\texttt{Undefined} имеет одно значение, которое присваивается любой
+неинициализированной переменной. Все числа представляются как числа с
+плавающей запятой, которые при необходимости (например при
+индексации массива) неявно преобразовываются к целым числам.
+
+Обращение к ранее явно не инициализированному члену объекта не
+является ошибкой. Запрашиваемый член неявно создается и
+инициализируется значением типа \texttt{Undefined}.  Поэтому, можно
+сказать что объект -- это отображение всевозможных строк, то есть
+значений типа \texttt{String}, на набор атрибутов и значений, при этом
+свойства объекта явно не объявленные имеют значение по-умолчанию.
+
+Абстрактный объект \texttt{AbsObject} напрямую следует
+этому утверждению. Он представляет собой отображение всевозможных
+строк на декартово произведение множества значений \texttt{Value} и
+множества свойств \texttt{Properties}.  Множество \texttt{Value} представляет
+собой декартово произведение множеств \texttt{Undef,
+Null, Bool, Number, String}, моделирующих соответствующие элементарные
+типы, и множества \texttt{Object} всех подмножеств множества ссылок
+\texttt{Label} на абстрактные объекты.
+% Value definition ::{
+\[
+\mathtt{
+  Value = Undef \times Null \times Bool \times Number \times String
+  \times Object
+}
+\]%}::
+Множество \texttt{Properties} есть декартово произведение множеств
+свойств, соответствующих свойствам объекта \texttt{Object}, описанных
+в главе \ref{sec:features}.
+% Properties definition ::{
+\[
+\mathtt{
+  Properties = ReadOnly \times DoNotDelete \times DoNotEnum
+}
+\]%}::
+
+Функции в языке JavaScript заменяют последовательность
+стековых фреймов при вызове на ту, при которой они были объявлены.
+Чтобы смоделировать этy особенности в модель абстрактного объекта
+\texttt{AbsObject} добавлено множество возможных значений
+последовательности стековых фреймов \texttt{ScopeChain}, при
+которых этот объект создавался.
+
+В языке поддерживается интроспекция --- возможность менять структуру
+объектов во время выполнения, поэтому необходимо учитывать
+возможность удаления свойств объекта. Например:
+% листинг ::{
+\begin{lstlisting}
+  var a = 10;
+  a.b = 20;
+
+  if (condition()) {
+    delete a.b;
+  }
+
+  var result = a.b;
+\end{lstlisting}%}::
+Если не учитывать удаление свойств, то переменная \texttt{result}
+может потерять значение \texttt{undefined}. Для этого в абстрактный
+объект добавлено множество \texttt{Absent}.
+
+Абстрактный объект может моделировать несколько конкретных объектов.
+Это необходимо для завершаемости анализа, например, в следующем цикле:
+% листинг цикла ::{
+\begin{lstlisting}
+  while (true) {
+    a = new Object()
+  }
+\end{lstlisting}
+%}::
+Пусть при входе в цикл идентификатор $a$ указывает на объект со
+значением $v_0$. Если на каждой итерации создавать новый абстрактный
+объект с меткой $l_k$ и добавлять ее к множеству возможныx значений
+объекта $v_0$, то это приведёт к незавершаемости анализа.
+\[
+\begin{aligned}
+ v_0 &= (\;, \;, \;,  \;,  \;, \{l_0\}) \\
+v_{k} &= (\;, \;, \;,  \;,  \;, \{l_k\}) \sqcup (\;,
+\;, \;,  \;,  \;, \{l_0, \cdots, l_{k-1}\}) = 
+(\;, \;, \;, \;, \;, \{l_0, \cdots, l_k\})
+\end{aligned}
+\]
+Поэтому, необходимо определить семантику операции \texttt{NEW} таким
+образом, чтобы объект создавался при первом вызове, а при последующих
+возвращалась ссылка на уже существующий объект.
+
+Схожая проблема возникает при моделировании замыканий. При объявлении
+функции создается объект, который связывается в объекте области
+видимости с идентификатором. Создание объекта-функции происходит
+каждый раз когда встречается инструкция объявления. Рассмотрим,
+например, следующий код:
+% листинг для вызова функции в циле::{
+\begin{lstlisting}
+  function f() {
+    return function g() {}
+  }
+
+  while (true) {
+    a = f()
+  }
+\end{lstlisting}
+%}::
+Если при каждом вызове внешней функции \texttt{f()} создавать новый
+объект, представляющий функцию \texttt{g()}, то так же нарушится
+конечность множества \texttt{Label}. Необходимо чтобы каждой функции
+соответствовал один объект. Однако, изменить семантику операции
+\texttt{ENTRY} будет недостаточно --- корректная модель функции должна
+содержать последовательность стековых фреймов, при которых она была
+создана.  Поэтому \texttt{AbsObject} включает множество
+последовательностей стековых фреймов, при которых этот объект был
+объявлен.
+% % листинг для 2^ScopeChain::{
+% \begin{lstlisting}
+  % function f() {
+    % var a = new Number(this.val);
+    % return function g() {
+      % return a;
+    % }
+  % }
+  
+  % obj = (condition) ?  {val : 10} : {val : 20};
+  
+  % f.apply(obj)
+% \end{lstlisting}
+% %}::                                                    
+
+Таким образом, абстрактный объект состоит из совокупности множества
+последовательностей стековых фреймов, в которых этот объект мог быть
+создан и отображения всевозможных строк \texttt{Names} на значение
+\texttt{Value} и атрибуты значения \texttt{Properties, Absent}:
+% AbsObject definition ::{
+\[
+  % AbsObject = (Names \hookrightarrow Value \times Absent \times Properties \times Modified) \times {ScopeChain}
+  \mathtt{AbsObject} = \left( 
+      % \mathtt{Names} \longrightarrow \mathtt{Value} 
+      \mathtt{Names} \hookrightarrow \mathtt{Value} 
+      \times \mathtt{Absent} 
+      \times \mathtt{Properties} 
+    \right) \times 2^{\,\mathtt{ScopeChain}}
+\]%}::
+% Множество \texttt{Modified} необходимо для интерпроцедурного анализа,
+% который будет описан в главе \ref{sec:interproc}.
+Множества
+% \texttt{Absent, Modified, Undef, Null, Bool, ReadOnly, DoNotDelete, DoNotEnum}
+\texttt{Absent, Undef, Null, Bool, ReadOnly, DoNotDelete, DoNotEnum}
+являются решётками. Частичный порядок на них определяется
+соответствующими диаграммами.
+% Bool ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+  &    \texttt{bool}   &\\
+  \texttt{true}  &&  \texttt{false}\\
+    &   $\bot$  &\\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-1-2) -- (mx-2-\a);
+  \foreach \a in {1,3}
+    \draw (mx-3-2) -- (mx-2-\a);
+\end{tikzpicture}
+\caption{Решётка \texttt{Bool}}
+\label{fig:bool}
+\end{figure}%}::
+% DoNotDelete ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=0pt,circle,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    &   $\top$  &\\
+    \texttt{ND}  &&  $\neg\mathtt{ND}$ \\
+    &   $\bot$  &\\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-1-2) -- (mx-2-\a);
+  \foreach \a in {1,3}
+    \draw (mx-3-2) -- (mx-2-\a);
+\end{tikzpicture}
+\caption{Решётка \texttt{DoNotDelete}}
+\label{fig:dnd}
+\end{figure}%}::
+% DoNotEnum ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=0pt,circle,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    &   $\top$  &\\
+    \texttt{NE}  &&  $\neg\mathtt{NE}$ \\
+    &   $\bot$  &\\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-1-2) -- (mx-2-\a);
+  \foreach \a in {1,3}
+    \draw (mx-3-2) -- (mx-2-\a);
+\end{tikzpicture}
+\caption{Решётка \texttt{DoNotEnum}}
+\label{fig:dne}
+\end{figure}%}::
+% ReadOnly ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=0pt,circle,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    &   $\top$  &\\
+    \texttt{RO}  &&  $\neg\mathtt{RO}$ \\
+    &   $\bot$  &\\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-1-2) -- (mx-2-\a);
+  \foreach \a in {1,3}
+    \draw (mx-3-2) -- (mx-2-\a);
+\end{tikzpicture}
+\caption{Решётка \texttt{ReadOnly}}
+\label{fig:ro}
+\end{figure}%}::
+% Undef ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    \texttt{undef} \\
+    $\bot$ \\
+  };
+  \draw (mx-1-1) -- (mx-2-1);
+\end{tikzpicture}
+\caption{Решётка \texttt{Undef}}
+\label{fig:undef}
+\end{figure}%}::
+% Null ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    \texttt{null} \\
+    $\bot$ \\
+  };
+  \draw (mx-1-1) -- (mx-2-1);
+\end{tikzpicture}
+\caption{Решётка \texttt{Null}}
+\label{fig:null}
+\end{figure}%}::
+% Absent ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+    \texttt{absent} \\
+    $\bot$ \\
+  };
+  \draw (mx-1-1) -- (mx-2-1);
+\end{tikzpicture}
+\caption{Решётка \texttt{Absent}}
+\label{fig:absent}
+\end{figure}%}::
+
+Множество \texttt{String} состоит из множества всевозможных
+подмножеств строк длины не более $\EuScript{K}$. В качестве операции
+частичного порядка используется включение множеств. Пример решётки на
+рисунке \ref{fig:string}.
+% формула String ::{
+\begin{align*}
+  \mathtt{String} = 2^{\mathtt{string(\EuScript{K})}} \\
+  \forall  P,Q \in \mathtt{String}: & \\
+  P \prec Q &\Leftrightarrow \forall p \in P,\ \exists q \in Q\ :\ p = q \\
+  P \sqcup Q &= \left\{ o\ :\ o \in P  \lor o \in Q \right\}
+\end{align*}%}::
+% String ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+  &	$2^\mathtt{string(\EuScript{K})}$	  &	     \\
+	 &        \ldots                  &	     \\
+	 &  \{``bar'', ``foo''\} 	  &          \\
+      \{``bar''\} & \ldots & \{``foo''\} \\
+         & $\bot$  & \\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-5-2) -- (mx-4-\a);
+  \foreach \a in {1,3}
+    \draw (mx-4-\a) -- (mx-3-2);
+  \draw (mx-3-2) -- (mx-2-2);
+  \draw (mx-2-2) -- (mx-1-2);
+\end{tikzpicture}
+\caption{Часть решётки \texttt{String}}
+\label{fig:string}
+\end{figure}%}::
+
+Множество \texttt{Object} состоит из множества всевозможных
+подмножеств множества меток \texttt{Label}. В качестве операции
+частичного порядка используется включение множеств. Пример решётки на
+рисунке \ref{fig:object}.
+% Object definition ::{
+\begin{align*}
+  \mathtt{Object} = 2^\mathtt{Label} \\
+  \forall  P,Q \in \mathtt{Object}: & \\
+  P \prec Q &\Leftrightarrow \forall p \in P,\ \exists q \in Q\ :\ p = q \\
+  P \sqcup Q &= \left\{ o\ :\ o \in P  \lor o \in Q \right\}
+\end{align*}%}::
+% Object figure ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1cm,between origins},
+     row sep={1cm,between origins}]
+  {
+	 &     $2^\mathtt{Label}$	  &	     \\
+	 &        \ldots                  &	     \\
+	 &  $\{l_{1}, l_{M}\}$ 	  &          \\
+	 $\{l_{1}\}$ & \ldots & $\{l_{M}\}$ \\
+         & $\bot$  & \\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-5-2) -- (mx-4-\a);
+  \foreach \a in {1,3}
+    \draw (mx-4-\a) -- (mx-3-2);
+  \draw (mx-3-2) -- (mx-2-2);
+  \draw (mx-2-2) -- (mx-1-2);
+\end{tikzpicture}
+\caption{Часть решётки \texttt{Object}}
+\label{fig:object}
+\end{figure}%}::
+
+Множество \texttt{Number} состоит из всевозможных отрезков от
+\texttt{Min} до \texttt{Max}. В качестве операции частичного порядка
+используется включение одного отрезка в другой. Пример решётки на
+рисунке \ref{fig:number}.
+% Number definition ::{
+\begin{align*}
+  \mathtt{Number} &= \left\{ \left[ a,b \right] : a \le b , a,b \in
+  \left[ Min, Max \right]  \right\}\\
+  \forall  A,B & \in \mathtt{Number}, \thickspace A = \left[  a_1, a_2 \right], B = \left[ b_1, b_2 \right]: \\ 
+  A \prec B &\Leftrightarrow a_1 < b_1 , a_2 > b_2 \\
+  A \sqcup B &= \begin{cases}
+    \bot & \left[ a_1, a_2 \right] \cap \left[ b_1, b_2 \right] = \emptyset \\
+    [a, b] & a = min(a_1, b_1), b = max(a_2, b_2)
+  \end{cases} 
+\end{align*}%}::
+% Number figure ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={2cm,between origins},
+     row sep={1.5cm,between origins}]
+  {
+   &       & $\mathtt{[Min,Max]}$ &    &        \\
+	   &       & \ldots &        &        \\
+	   &       &$[1, 3]$&        &        \\
+	   &$[1,2]$&        &$[2, 3]$&        \\
+    \ldots &$[1,1]$&$[2, 2]$&$[3, 3]$& \ldots \\
+	   &       & $\bot$ &        &        \\
+  };
+  \foreach \a in {2,3,4}
+    \draw (mx-6-3) -- (mx-5-\a);
+  \foreach \a in {2,3}
+    \draw (mx-5-\a) -- (mx-4-2);
+  \foreach \a in {3,4}
+    \draw (mx-5-\a) -- (mx-4-4);
+  \foreach \a in {2,4}
+    \draw (mx-5-\a) -- (mx-3-3);
+  \foreach \a in {2,4}
+    \draw (mx-4-\a) -- (mx-3-3);
+  \draw (mx-2-3) -- (mx-1-3);
+  \draw (mx-3-3) -- (mx-2-3);
+\end{tikzpicture}
+\caption{Часть решётки \texttt{Number}}
+\label{fig:number}
+\end{figure}%}::
+
+Для множества \texttt{Value} операции частичного порядка и объединения
+двух элементов определены следующим образом:
+% Value operations ::{
+\begin{align*}
+  \forall A, B &\in \texttt{Value},\, A=\left( u_a, n_a, b_a, d_a,
+  s_a, l_a \right),\, B=\left( u_b, n_b, b_b, d_b, s_b, l_b
+  \right)\,:\\
+  A \prec B &\Leftrightarrow 
+    u_a \prec u_b\, \land \,
+    n_a \prec n_b\, \land \,
+    b_a \prec b_b\, \land \,
+    d_a \prec d_b\, \land \,
+    s_a \prec s_b\, \land \,
+    l_a \prec l_b \\
+  A \sqcup B &= \left( 
+    u_a \sqcup u_b, 
+    n_a \sqcup n_b, 
+    b_a \sqcup b_b, 
+    d_a \sqcup d_b, 
+    s_a \sqcup s_b, 
+    l_a \sqcup l_b 
+    \right)
+\end{align*}%}::
+
+Для множества \texttt{AbsObject} отношение частичного порядка и
+объединения двух элементов определены следующим образом:
+% AbsObject operations ::{
+\begin{align*}
+  \forall A, B &\in \texttt{AbsObject}\,, \forall p \in \texttt{Names}\,,\\
+  A &=  \left( \left( \mathtt{Names} \xhookrightarrow{f} \mathtt{Value} \times \mathtt{Absent} \times \mathtt{Properties} \right) , SC_a \right)\,, \\
+  B &=  \left( \left( \mathtt{Names} \xhookrightarrow{g} \mathtt{Value} \times \mathtt{Absent} \times \mathtt{Properties} \right) , SC_b \right)\,, \\
+  f(p) &= (v_a, a_a, p_a) \,, g(p) = (v_b, a_b, p_b) \,: \\
+  A \prec B &\Leftrightarrow 
+ \begin{cases}
+   v_a \prec v_b \land a_a \prec a_b \land p_a \prec p_b\\
+   SC_a \subseteq SC_b \\
+ \end{cases} \\ 
+ A \sqcup B &= \left( \left( Names \xhookrightarrow{k} \mathtt{Value}
+ \times \mathtt{Absent} \times \mathtt{Properties} \right), SC
+ \right)\,, &&
+ k(p) = \left(v_a \sqcup v_b , a_a \sqcup a_b, p_a \sqcup p_b \right)\,, \\
+ & &&SC = SC_a \cup SC_b
+\end{align*}%}::
+%}::
+\subsection{Модель интерпретатора}%::{
+\label{sec:interpretmodel}
+Состояние абстрактного интерпретатора \texttt{State} будет описываться
+через состояние абстрактной кучи \texttt{Store} и состояние
+абстрактного стека выполнения \texttt{Stack}.
+% State definition ::{
+\[
+\mathtt{
+State = Store \times Stack
+}
+\]%}::
+Абстрактная куча представляет собой отображение множества меток
+\texttt{Label} на абстрактные объекты \texttt{AbsObject}.
+Объекты добавляются в кучу операциями \texttt{CONSTRUCT,
+DECLARE\_VARIABLE, ENTRY, CALL}.
+% Store definition ::{
+\[
+\mathtt{
+Store = Label \hookrightarrow {AbsObject}
+}
+\]%}::
+Для упрощения семантики были введены временные переменные, которые
+являются аналогом регистров. Явных ограничений на их количество нет,
+однако мощность множества всех временных переменных \texttt{Temp}
+ограничена сверху числом вершин в графе управления:~$|\mathtt{Temp}| =
+O\left(|G|\right)$. Множество временных переменных определяется в
+процессе построения графа потока и не изменяется в ходе
+интерпретации. Значение временной переменной может изменяться
+операциями \texttt{READ\_VARIABLE}, \texttt{CONSTANT} и
+\texttt{READ\_PROPERTY}. Абстрактный стек выполнения состоит множества
+возможных контекстов выполнения \texttt{ExecContext} и отображения
+временных переменных \texttt{Temp} на их значения \texttt{Value}:
+% Stack definition ::{
+\[
+  % Stack = (Temp \longrightarrow Value) \times {ExecContext} \times {Labels}
+  \mathtt{Stack} = (\mathtt{Temp} \rightarrow \mathtt{Value}) \times
+  2^{\mathtt{ExecContext}}
+\]%}::
+Контекст исполнения \texttt{ExecContext} состоит из последовательности
+стековых фреймов \texttt{ScopeChain}, представляющей иерархию
+\emph{объектов области видимости}, метки, указывающей на текущий
+объект \texttt{this} и метки, указывающей на текущий \emph{объект
+переменных}.
+% ExecContext definition ::{
+\begin{gather*}
+  % ExecContext = ScopeChain \times Label \times Label
+  \mathtt{ ExecContext = ScopeChain \times Label \times Label }\\
+  \mathtt{ ScopeChain = Label* }
+\end{gather*}
+%}::
+В абстрактном стеке учитывается множество возможных контекстов, а не
+один контекст из-за того, что абстракный объект-функция может
+моделировать несколько конкретных объектов-функций, созданных при
+разных конктекстах.
+
+На множестве \texttt{Store} операции частичного порядка и объединения
+двух элементов объединены следующим образом:
+% Store operations ::{
+\begin{align*}
+  \forall A, B &\in \texttt{Store},\,
+  A=\left(\texttt{Label}\xhookrightarrow{f}\texttt{AbsObject}\right),\, 
+  B=\left(\texttt{Label}\xhookrightarrow{g}\texttt{AbsObject}\right),\,\\
+  f&: \texttt{Label} \supset L_f \rightarrow \texttt{AbsObject},\,\\
+  g&: \texttt{Label} \supset L_g \rightarrow \texttt{AbsObject}:\\
+  A \prec B &\Leftrightarrow L_f \subset L_g\, \land\, \forall l \in
+  L_f\,:\,f(l) \prec g(l)\\
+  A \sqcup B &= \left(\texttt{Label}\xhookrightarrow{k}\texttt{AbsObject}\right) \\
+  k(l) &= \begin{cases}
+    f(l) & l \in L_f \land l \not\in L_g \\
+    g(l) & l \in L_g \land l \not\in L_f \\
+    f(l) \sqcup g(l) & l \in L_f \cap L_g \\
+  \end{cases}
+\end{align*}%}::
+На множестве \texttt{Stack} операции частичного порядка и объединения
+двух элементов объединены следующим образом:
+% % Stack operations ::{
+% \begin{align*}
+  % \forall A, B &\in \texttt{Stack},\, A=\left(\left(\mathtt{Temp}
+  % \xrightarrow{f} \mathtt{Value}\right) \times EC_a \right),\,
+  % B=\left(\left(\mathtt{Temp}
+  % \xrightarrow{g} \mathtt{Value}\right) \times EC_b \right)\,:\\
+  % A \prec B &\Leftrightarrow \begin{cases}
+    % \forall t \in \texttt{Temp}\,: f(t) \prec g(t)\\
+    % EC_a \subset EC_b
+  % \end{cases}\\
+  % A \sqcup B &= \left(  \left(\mathtt{Temp} \xrightarrow{k}
+  % \mathtt{Value}\right) \times EC_a \cup EC_b \right)\\
+  % k(t) &= f(t) \sqcup g(t)
+% \end{align*}
+% %}::
+% Stack operations ::{
+\begin{align*}
+  \forall A, B &\in \texttt{Stack},\, A=\left(\left(\mathtt{Temp}
+  \xrightarrow{f} \mathtt{Value}\right) \times EC_a \right),\,
+  B=\left(\left(\mathtt{Temp}
+  \xrightarrow{g} \mathtt{Value}\right) \times EC_b \right)\,:\\
+  A \prec B &\Leftrightarrow \forall t \in \texttt{Temp}\,: f(t) \prec g(t)\\
+  A \sqcup B &= \left(  \left(\mathtt{Temp} \xrightarrow{k}
+  \mathtt{Value}\right) \times EC_a \right)\\
+  k(t) &= f(t) \sqcup g(t)
+\end{align*}
+%}::
+
+Для анализа необходимо чтобы в решётке содержалась информация о метках
+рёбер, по которым возможно распространение информации после очередной
+операции. Для этого в решётку анализа включено множество
+\texttt{Marker}. Оно  состоит из всевозможных подмножеств множества
+меток \texttt{M}, описанного в главе \ref{sec:cfgbuild}. Число меток
+ограничено \texttt{M}, поэтому \texttt{Marker} конечно. В качестве
+операции частичного порядка используется включение множеств. Часть
+решётки изображена на рисунке \ref{fig:marker}.
+% Marker definition ::{
+\begin{align*}
+  \mathtt{Marker} = 2^\mathtt{M} \\
+  \forall  P,Q \in \mathtt{Marker}: & \\
+  P \prec Q &\Leftrightarrow \forall p \in P,\ \exists q \in Q\ :\ p = q \\
+  P \sqcup Q &= \left\{ o\ :\ o \in P  \lor o \in Q \right\}
+\end{align*}%}::
+% Marker figure ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  \matrix (mx)
+    [matrix of nodes,%
+     nodes in empty cells,
+     nodes={outer sep=2pt,minimum size=4pt},
+     column sep={1.5cm,between origins},
+     row sep={1cm,between origins}]
+  {
+	 &     $2^\mathtt{M}$	  &	     \\
+	 &        \ldots                  &	     \\
+	 &  $\{true, except\}$ 	  &          \\
+	 $ \{true\} $ & \ldots & $\{except\}$ \\
+         & $\bot$  & \\
+  };
+  \foreach \a in {1,3}
+    \draw (mx-5-2) -- (mx-4-\a);
+  \foreach \a in {1,3}
+    \draw (mx-4-\a) -- (mx-3-2);
+  \draw (mx-3-2) -- (mx-2-2);
+  \draw (mx-2-2) -- (mx-1-2);
+\end{tikzpicture}
+\caption{Часть решётки \texttt{Marker}}
+\label{fig:marker}
+\end{figure}%}::
+
+Для моделирования поведения операций создания объектов
+\texttt{CONSTRUCT} и объявления функций \texttt{ENTRY} вводится
+функция \texttt{FunMap}, отображающая уникальный идентификатор
+вершины, на соответствующий объект, если он уже был создан, либо на
+$l_{null}$, если не был.
+\[
+\mathtt{FunMap} = V \times \mathtt{Label}
+\]
+
+Таким образом, решётка анализа $\EuScript{L}$ содержит информацию о
+состоянии абстрактного интерпретатора, множестве меток, по которым
+разрешено распространение информации и отображения идентификаторов
+порождающих вершин на указатели на абстрактные объекты.
+% Lattice definition ::{
+\[ \EuScript{L} = \mathtt{State} \times \texttt{Marker} \times
+\texttt{FunMap} \]
+%}::
+%}::
+\subsection{Интерпроцедурный анализ}%::{
+\label{sec:interproc}
+При интерпретации программы контекст функции определяется
+последовательностью стековых фреймов в момент вызова. Попытка
+полностью смоделировать эту последовательность при абстрактной
+интерпретации приведет к незавершаемости анализа. Это произойдет из-за
+наличия рекурсии. Пример части графа потока управления, содержащий
+рекурсивный вызов изображен на рисунке \ref{fig:recursion}.
+% recursion figure ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  [
+  point/.style={
+    circle,inner sep=0pt,minimum size=2pt,fill=red},
+  skip loop/.style={
+    to path={-- ++(0,#1) -| (\tikztotarget)}},
+  simp/.style={
+   rounded rectangle,
+   minimum size=6mm,
+   very thick,draw=black!50,
+   fill=blue!20,
+   font=\ttfamily},
+  line/.style={rounded corners,thick}
+  ]
+  \matrix[row sep=1mm,column sep=1cm] {
+     \node (ca1) [simp] {CALL(f)    };    &
+     \node (en) [simp] {ENTRY(f)   };    &
+     \node (ca) [simp] {CALL(f)    };    &
+     \node (af) [simp] {AFTER\_CALL};    &
+     \node (ex) [simp] {EXIT	    };    \\
+  };
+
+  \path 
+    (ca1) edge [->,line] (en)
+    (en) edge [->,line] (ca)
+    (af) edge [->,line] (ex)
+    (ca) edge [thick](af) 
+    (ca) edge [->,skip loop=7mm,line] (en)
+    (ex) edge [->,skip loop=7mm,line] (af); 
+
+\end{tikzpicture}
+\caption{Рекурсивный вызов функции \texttt{f}}
+\label{fig:recursion}
+\end{figure}%}::
+При каждом вызове к вершине иерархии объектов областей видимости будет
+(\texttt{ScopeChain} в терминах решётки) будет добавляться новый объект
+активации. Это приводит к неограниченной решётке, то есть к
+невозможности применения изменённого алгоритма с рабочим списком.
+Чтобы этого избежать, обычно \cite{Nielson1999} вводится ограничение
+на отслеживаемую глубину последовательности стековых фреймов, или, в
+терминах \texttt{JavaScript}, иерархии объектов областей видимости.
+Однако, в данном случае этот подход неприменим. Если ввести такое
+ограничение, то, начиная с некоторой глубины, из иерархии областей
+видимости исчезнет глобальный объект. Это приведет к невозможности
+узнать значение переменных, идентификаторы которых хранились в этом
+глобальном объекте, то есть, к нарушению свойства корректности
+анализа.
+
+Поэтому, в этой работе, введено ограничение на максимальную длину
+иерархии объектов областей видимости:
+\[
+|\mathtt{ScopeChain}| \le \EuScript{S}
+\]
+
+Поскольку иерархия областей видимости может изменяться только
+инструкциями \texttt{catch} и \texttt{with}, бесконечный цикл на
+рисунке~\ref{fig:recursion} не повлияет на завершимость анализа.
+% loop call figure ::{
+\begin{figure}[htp]
+\centering
+\begin{tikzpicture}
+  [
+  point/.style={
+    circle,inner sep=0pt,minimum size=2pt,fill=red},
+  skip loop/.style={
+    to path={-- ++(0,#1) -| (\tikztotarget)}},
+  simp/.style={
+   rounded rectangle,
+   minimum size=6mm,
+   very thick,draw=black!50,
+   fill=blue!20,
+   font=\ttfamily},
+  line/.style={rounded corners,thick}
+  ]
+  \matrix[row sep=4mm,column sep=1cm] {
+     % \node (empty1) [simp] {\dots};    &
+     \node (if) [simp] {IF(t)    };    &
+     \node (ca) [simp] {CALL(f)    };    &
+     \node (af) [simp] {AFTER\_CALL};    \\
+     % \node (empty2) [simp] {\dots};    \\
+
+     &
+     \node (en) [simp] {ENTRY(f)   };    &
+     \node (ex) [simp] {EXIT       };    \\
+  };
+
+  \path 
+    (ca) edge [thick] (af) 
+    % (empty1) edge [->,line] (if)
+    (if) edge [->,line] (ca)
+    (af) edge [->,skip loop=7mm,line] (if)
+    % (af) edge [->,line] (empty2)
+    (ca) edge [->,line] (en)
+    (ex) edge [->,line] (af)
+    (en) edge [->,line] (ex); 
+
+\end{tikzpicture}
+\caption{Вызов функции \texttt{f} внутри цикла}
+\label{fig:while}
+\end{figure}%}::
+
+Для возврата данных из функции, то есть для передачи данных между
+инструкциями \texttt{RETURN} и \texttt{AFTER\_CALL}, используется
+специальная временная переменна $v_{call}$.
+
+Для инициализации программной переменной объявленной в блоке
+\texttt{CATCH} значением, брошенным инструкцией \texttt{THROW},
+используется временная переменная $v_{ex}$.
+%}::
+\subsection{Функция переноса}%::{
+\label{sec:trans_func}
+В этой главе будет описано влияние каждой операции на состояние
+интерпретатора.
+Каждой вершине $v$ графа потока управления $G(V,E)$ функциями $post :
+V \rightarrow P$ и $pre : V \rightarrow P$ ставится в соответствие две точки.
+Этим точкам функцией $get : P \rightarrow Lattice$ ставится в
+соответствие состояние интерпретатора. До прохода через вершину $v$ он
+находится в состоянии $s$:
+% state before ::{
+\begin{align*}
+  s &= \left(h, t, e \right) = get\left( pre\left( v \right) \right) \\
+  h &: Label \rightarrow AbsObject && \mbox{состояние кучи}\\
+  t &: T \rightarrow Value && \mbox{значение временных переменных}\\
+  e &= \left\{ \left( chain_i, var_i, this_i \right) \right\} &&
+  \mbox{контексты выполнения, } i \in [1, W]\\
+  \tilde{m} &: T \rightarrow Value && \mbox{возможные метки рёбер}\\
+\end{align*}
+%}::
+После прохода через вершину $v$ интерпретатор перейдет в состояние
+$\tilde{s}$, определяемое функцией переноса $f_v :
+\EuScript{L} \rightarrow \EuScript{L}$:
+% state after ::{
+\begin{align*}
+  \tilde{s} &= (\tilde{h}, \tilde{t}, \tilde{e}, m) = get\left( post\left( v \right) \right) \\
+  \tilde{s} &= f_v\left( s \right) \\
+  \tilde{h} &: Label \rightarrow AbsObject && \mbox{состояние кучи}\\
+  \tilde{t} &: T \rightarrow Value && \mbox{значение временных переменных}\\
+  \tilde{e} &= \left\{ \left( chain_i, var_i, this_i \right) \right\}
+  && \mbox{контексты выполнения, } i \in [1,\tilde{W}]\\
+  \tilde{m} &: T \rightarrow Value && \mbox{возможные метки рёбер}\\
+\end{align*}
+%}::
+Ниже определены функции переноса $f_v$ для каждой из возможных вершин
+в графе потока управления. Так же неявно описана функция $\tau \: : \:
+V \rightarrow \EuScript{F}$, ставящяя вершине в соответствие функцию.
+% transfer function table ::{
+\begin{description}
+  \item[{\small\ttfamily DECLARE\_VARIABLE(x)}] ~\\%::{
+  % Объявление программной переменной с именем \texttt{x}.
+  \[
+  \begin{aligned}
+    \left( l, o \right) &= newObject(e) \\
+    env_i &= put\left( h\left( var_i \right), x, l \right) \\ 
+    \tilde{h}\left( id \right) &= 
+      \begin{cases}
+	h(id) & id \neq l, id \neq var_i \\
+	o & id = l \\
+	env_i & id = var_i \\
+      \end{cases} \\
+    \tilde{t} &= t \\
+    \tilde{e} &= e \\
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \] 
+  \\
+%}::
+  \item[{\small\ttfamily READ\_VARIABLE(x, v)}] ~\\%::{
+  % Чтение значения программной переменной с именем \texttt{x} во временную
+  % переменную с именем \texttt{v}.
+  \[
+  \begin{aligned}
+    l_i &= resolve(h, chain_i, x) \\
+    res_i &= \begin{cases}
+      \texttt{undef} & l = l_{null} \\
+      getProp(h(l_i), x) & l \neq l_{null} \\
+    \end{cases} \\
+    res &= \bigsqcup res_i \\
+    \tilde{h} &= h \\ 
+    \tilde{t}\left( id \right) &= 
+      \begin{cases}
+	 t\left( id \right) & id \neq v \\
+	 res & id = v \\
+      \end{cases} \\ 
+    \tilde{e} &= e \\
+  \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily WRITE\_VARIABLE(v, x)}] ~\\%::{
+  % Запись значения временной переменной с именем \texttt{v} в
+  % программную переменную с именем \texttt{x}.
+  \[
+  \begin{aligned}
+    chain_i &= l^{i}_{1}, \cdots, l^{i}_{k} \\
+    h(l^{i}_{k}) &= (names, chains) \\
+    % names(id) &= (val_{id}, abs_{id}, prop_{id}) \\
+    pr &= (v, \bot, (\lnot\texttt{RO}, \lnot\texttt{ND}, \lnot\texttt{NE}))
+    \\
+    \tilde{names}(id)&= \begin{cases}
+      names(id) & id \neq l^{i}_{k} \\
+      names(id) &
+	id = l^{i}_{k} \land (\bot, \bot, (\mathtt{RO}, \bot, \bot)) \prec names(id)\\
+      names(id) \sqcup pr & 
+	id = l^{i}_{k} \land (\bot, \bot, (\top, \bot, \bot)) \prec names(id) \\
+      pr &
+	id = l^{i}_{k} \land (\bot, \bot, (\lnot \mathtt{RO}, \bot, \bot)) \prec names(id)\\
+      pr &
+	id = l^{i}_{k} \land \lnot hasProp(h(l^{i}_{k}), x) \\
+    \end{cases} \\
+    \tilde{h}(id) &= 
+    \begin{cases}
+       h(id) & id \neq this\\
+       (\tilde{names}, chains) & id = this \\
+    \end{cases} \\
+    \tilde{t} &= t \\
+    \tilde{e} &= e = \{(chain_i, this_i, var_i)\} \\ 
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily CONSTANT(c, v)}] ~\\%::{
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    \tilde{t}(id) &= 
+      \begin{cases}
+	t(id) &\: id \neq v \\
+	c &\: id = v \\
+      \end{cases}\\
+    \tilde{e} &= e \\
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily READ\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3})}] ~\\%::{
+  % Чтение атрибута с именем содержащимся во временной переменной
+  % \texttt{v\ts{2}} из объекта находящегося в \texttt{v\ts{1}} в переменную
+  % \texttt{v\ts{3}}.
+  \[
+  \begin{aligned}
+    v_1 &= (u_1, n_1, b_1, a, d_1, \{l_1, \cdots, l_k\}) \\
+    v_2 &= (u_2, n_2, b_2, \{s_1, \cdots, s_p\}, d_2, o_2) \\
+    res &= \bigsqcup_{\substack{i\in[1,k] \\ j\in[1,p]}} res(l_i, s_j) \\
+    res(l, s) &= \begin{cases}
+      getProp(h(l), s) & hasProp(h(l), s) \\
+      res(getProp(h(l), \mathtt{"prototype"}), s) & getProp(h(l),
+      \mathtt{"prototype"})
+      \neq l_{null}\\
+      \mathtt{undefined} & getProp(h(l), \mathtt{"prototype"}) = l_{null}\\
+    \end{cases} \\
+    \tilde{h} &= h \\ 
+    \tilde{t}\left( id \right) &= 
+      \begin{cases}
+	 t\left( id \right) & id \neq v_3 \\
+	 res & id = v_3 \\
+      \end{cases} \\ 
+    \tilde{e} &= e \\ 
+  \tilde{m} &= \{\mathtt{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily WRITE\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3})}] ~\\%::{
+  % Запись в атрибут с именем содержащимся во временной переменной
+  % \texttt{v\ts{2}} объекта находящегося в \texttt{v\ts{1}} переменной
+  % \texttt{v\ts{3}}.
+  \[
+  \begin{aligned}
+    v_1 &= (u_1, n_1, b_1, a, d_1, \{l_1, \cdots, l_k\}) \\
+    v_2 &= (u_2, n_2, b_2, \{s_1, \cdots, s_q\}, d_2, o_2) \\
+    h(p) &= (names_p, chains_p) \\
+    v &= (v_3, \bot, (\lnot \mathtt{RO}, \lnot \mathtt{ND}, \lnot
+      \mathtt{NE})) \\
+    \tilde{names}_p(id) &= \begin{cases} 
+      names_p(id) & id \notin \{s_1, \cdots, s_q\} \\
+      names_p(id) \sqcup v & 
+	(\bot, \bot, ( \top, \bot, \bot)) \prec names_p(id) \\
+      names_p(id) & 
+	(\bot, \bot, (\mathtt{RO},\bot, \bot)) \prec names_p(id) \\
+      v & 
+	(\bot, \bot, (\lnot \mathtt{RO},\bot, \bot)) \prec names_p(id) \\
+      v & \lnot hasProp(h(p), id) \\
+    \end{cases} \\
+    \tilde{h}(id) &=
+    \begin{cases}
+      h(id) & id \notin \{l_1, \cdots, l_k\} \\
+      (\tilde{names_p}, chains_p) & id = l_p, p \in [1,l]  \\
+    \end{cases}
+    \\ 
+    \tilde{t} &= t \\
+    \tilde{e} &= e = (chain, this, var) \\ 
+  \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily DELETE\_PROPERTY(v\ts{1}, v\ts{2}, v\ts{3})}] ~\\%::{
+  % Удаление атрибута с именем содержащимся во временной переменной
+  % \texttt{v\ts{2}} из объекта находящегося в \texttt{v\ts{1}}. Результат
+  % операции записывается в переменную \texttt{v\ts{3}}.
+  \[
+  \begin{aligned}
+    v_1 &= (u_1, n_1, b_1, a, d_1, \{l_1, \cdots, l_k\}) \\
+    v_2 &= (u_2, n_2, b_2, \{s_1, \cdots, s_p\}, d_2, o_2) \\
+    res &= \bigsqcup_{\substack{l\in[1,k] \\ n\in[1,p]}} res(l, n) \\
+    res(l, n) &= \begin{cases}
+      \mathtt{true} & \lnot hasProp(h(l), n) \lor canDel(h(l), n) \\
+      \mathtt{false} & \lnot canDel(h(l), n) \\
+    \end{cases} \\
+    mod & = (\bot, \top, (\bot, \bot, \bot)) \\
+    \tilde{names_p}(id) &= \begin{cases}
+      names_p(id) & id \notin \{s_1, \cdots, s_p\} \\
+      names_p(id) \sqcup mod & id \in \{s_1, \cdots, s_p\} \land
+      hasProp(h(p), id) \\
+    \end{cases} \\
+    \tilde{h}(id) &= \begin{cases}
+      h(id) & id \notin \{l_1, \cdots, l_k \} \\
+      (\tilde{names_p}, chains_p) & id = l_q, q \in [1, k] \\
+    \end{cases} \\ 
+    \tilde{t}\left( id \right) &= 
+      \begin{cases}
+	 t\left( id \right) & id \neq v_3 \\
+	 res & id = v_3 \\
+      \end{cases} \\ 
+    \tilde{e} &= e = (chain, this, var) \\ 
+  \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily IF(v)}] ~\\%::{
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    \tilde{t} &= t\\
+    \tilde{e} &= e\\
+    \tilde{m} &= \begin{cases}
+      \{\emph{true}\} & $toBool(v) = \texttt{true}$\\
+      \{\emph{false}\} & $toBool(v) = \texttt{false}$\\
+      \{\emph{true}, \emph{false}\} & $toBool(v) = \texttt{bool}$\\
+    \end{cases} \\
+  \end{aligned}
+  \]
+  \\
+   
+%}::
+  \item[{\small\ttfamily ENTRY(f, x\ts{1}, ... x\ts{n})}] ~\\%::{
+  Используется как уникальная метка входа в функцию с необязательным
+  именем \texttt{f} и параметрами \texttt{x\ts{1}, \ldots, x\ts{n}}.
+  \\
+   
+%}::
+  \item[{\small\ttfamily CALL(w, v\ts{0}, ... v\ts{n})}] ~\\%::{
+  Вызов функции с именем \texttt{w} и аргументами \texttt{v\ts{0}, ... v\ts{n}}.
+  Нулевой аргумент содержит значение \texttt{this}.
+  \\
+   
+%}::
+  \item[{\small\ttfamily CONSTRUCT(w, v\ts{0}, ... v\ts{n})}] ~\\%::{
+  Инструкция создания объекта с именем \texttt{w}, инициализированного
+  аргументами \texttt{v\ts{0}, ... v\ts{n}}. В \texttt{v\ts{0}} содержится значение
+  \texttt{this}.
+  \\
+   
+%}::
+  \item[{\small\ttfamily EXIT}] ~\\%::{
+  Используется как уникальная метка выхода из функции.
+  \\
+   
+%}::
+  \item[{\small\ttfamily EXIT\_EXC}] ~\\%::{
+  Используется как уникальная метка выхода из функции в результате
+  исключения.
+  \\
+   
+%}::
+  \item[{\small\ttfamily AFTER\_CALL(v)}] ~\\%::{
+  % Используется как точка возврата из вызова функции или конструктора.
+  % В \texttt{v} записывается результат вызова или созданный объект.
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    \tilde{t}(id) &= 
+      \begin{cases}
+	t(id) &\: id \neq v_{call} \\
+	v &\: id = v_{call} \\
+      \end{cases}\\
+    \tilde{e} &= e \\
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+   
+%}::
+  \item[{\small\ttfamily RETURN(v)}] ~\\%::{
+  % Инструкция возврата из функции значения, содержащегося во временной
+  % переменной \texttt{v}.
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    \tilde{t}(id) &= 
+      \begin{cases}
+	t(id) &\: id \neq v_{call} \\
+	v &\: id = v_{call} \\
+      \end{cases}\\
+    \tilde{e} &= e \\
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+   
+%}::
+  \item[{\small\ttfamily CATCH(x)}] ~\\%::{
+  Блок обработки исключений. Программная переменная с именем
+  \texttt{x} содержит переданный с исключением объект.
+  \\
+   
+%}::
+  \item[{\small\ttfamily THROW(v)}] ~\\%::{
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    \tilde{t}(id) &= \begin{cases}
+      t(id) & id \neq v_{ex} \\
+      c & id = v_{ex} \\
+    \end{cases}
+    \\
+    \tilde{e} &= e\\
+    \tilde{m} &= \{\emph{except}\} \\
+  \end{aligned}
+  \]
+  \\
+   
+%}::
+  \item[{\small\ttfamily FOR\_IN(v\ts{1}, v\ts{2})}] ~\\%::{
+  % Цикл поочередно записывающий во временную переменную
+  % \texttt{v\ts{1}} атрибуты объекта, находящегося в переменной
+  % \texttt{v\ts{2}}.
+  \[
+  \begin{aligned}
+    \tilde{h} &= h\\
+    v_2 &= (u_2, n_2, b_2, a, d_2, \{l_1, \cdots, l_k\}) \\
+    res &= \bigsqcup_{\substack{l\in[1,k]}} res(h(l)) \\
+    m &= (\bot, \bot, (\bot, \bot, \lnot \mathtt{NE})) \\
+    res( (names, chains)) &= \bigsqcup_{\substack{s \: : \: m \prec names(s)}} val(names(s)) \\
+    val( (v, a, (r, d, e))) &= v \\
+    \tilde{t}(id) &= 
+      \begin{cases}
+	t(id) &\: id \neq v_1 \\
+	v &\: id = v_1 \\
+      \end{cases}\\
+    \tilde{e} &= e \\
+    \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+   
+%}::
+  \item[{\small\ttfamily WITH(v)}] ~\\%::{
+  Инструкция изменения области видимости.
+  \\
+   
+%}::
+  \item[{\small\ttfamily AFTER\_WITH}] ~\\%::{
+  % Инструкция изменения области видимости.
+  \\
+   
+%}::
+  \item[{\small\ttfamily UNOP(v\ts{1}, v\ts{2})}] ~\\%::{
+  Унарные операции \texttt{NEG, POS, BITNOT, NOT, INSTANCEOF, TYPEOF,
+  INC, DEC}. Временная переменная \texttt{v\ts{1}} содержит операнд, а в
+  \texttt{v\ts{2}} записывается результат.
+  \\
+   
+%}::
+  \item[{\small\ttfamily BINOP(v\ts{1}, v\ts{2}, v\ts{3})}] ~\\%::{
+  Бинарные операции \texttt{ BITOR, BITXOR, BITAND, AND, OR, LSH, RSH,
+  URSH, ADD, SUB, MUL, DIV, MOD, EQ, NE, SHNE, SHEQ, LT, LE, GT, GE,
+  IN}. Временные переменные \texttt{v\ts{1}} и \texttt{v\ts{2}} содержат
+  операнды, а в \texttt{v\ts{3}} записывается результат.
+  \\
+   
+%}::
+  \item[{\small\ttfamily ADD(v\ts{1}, v\ts{2}, v\ts{3})}] ~\\%::{
+  \[
+  \begin{aligned}
+    res_i &= \begin{cases}
+      \texttt{undef} & l = l_{null} \\
+      getProp(h(l_i), x) & l \neq l_{null} \\
+    \end{cases} \\
+    (\bot, \bot, \bot, [a_1, b_1], \bot, \bot) &= toNumber(t(v_1)) \\
+    (\bot, \bot, \bot, [a_2, b_2], \bot, \bot) &= toNumber(t(v_2)) \\
+    res &= (\bot, \bot, \bot, [a_1 + a_2, b_1 + b_2], \bot, \bot) \\
+    \tilde{h} &= h \\ 
+    \tilde{t}\left( id \right) &= 
+      \begin{cases}
+	 t\left( id \right) & id \neq v_3 \\
+	 res & id = v_3 \\
+      \end{cases} \\ 
+    \tilde{e} &= e \\
+  \tilde{m} &= \{\emph{uncond}\} \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[{\small\ttfamily HOOK(v\ts{1}, v\ts{2}, v\ts{3}, v\ts{4})}] ~\\%::{
+  Тернарная операция.
+%}::
+\end{description}
+%}::
+
+Ниже определены вспомогательные функции, использованные при
+определении функций переноса.
+% help function table ::{
+\begin{description}
+  \item[ $newobject : ScopeChain \rightarrow Label \times
+    AbsObject$ ] %::{
+  Создание нового объекта 
+  \\
+%}::
+  \item[ $toBool : Value \rightarrow Bool$ ] %::{
+  \[
+  \begin{aligned}
+    toBool( (u, n, b, d, s, o) ) &=
+    u_b \sqcup n_b \sqcup b \sqcup d_b \sqcup s_b \sqcup o_b \\
+    u_1 &= \begin{cases}
+      \bot & u = \bot \\
+      \texttt{false} & u \neq \bot \\
+    \end{cases} \\ 
+    n_1 &= \begin{cases}
+      \bot & n = \bot \\
+      \texttt{false} & n \neq \bot \\
+    \end{cases} \\ 
+    d_1 &= \begin{cases}
+      \texttt{true} & [0, 0] \sqcup d \neq [0,0] \\
+      \texttt{false} & [0, 0] \sqcup d = [0,0] \\
+    \end{cases} \\ 
+    s_1 &= \begin{cases}
+      \texttt{true} & \{\emph{''}\} \notin s \\
+      \texttt{false} & \{\emph{''}\} \in s \\
+    \end{cases}\\
+    o_1 &= \begin{cases}
+      \bot & o = \bot \\
+      \texttt{true} & o \neq \bot \\
+    \end{cases} 
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[ $resolve : (Label \rightarrow AbsObject) \times Label^* \times String \rightarrow Label $] %::{
+  \[
+  \begin{aligned}
+    resolve(h, l_1, \cdots, l_k, x) &= \begin{cases}
+      l_k & hasProp(l_k, x) \\
+      resolve(h, l_1, \cdots, l_{k-1}, x) & \lnot hasProp(l_k, x)
+      \land k > 1 \\
+      l_{null} & \lnot hasProp(l_k, x)
+      \land k = 1 \\
+    \end{cases} \\ 
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[ $getProp : AbsObject \times String \rightarrow Value$ ] %::{
+  \[
+  \begin{aligned}
+    getProp((names, chains), x) &= val_{x}  \\
+    names(id) &= (val_{id}, abs_{id}, prop_{id}) \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[ $hasProp : AbsObject \times String \rightarrow Value$ ] %::{
+  \[
+  \begin{aligned}
+    hasProp((names, chains), x) &= val_{x}  \\
+    names(id) &= (val_{id}, abs_{id}, prop_{id}) \\
+  \end{aligned}
+  \]
+  \\
+%}::
+  \item[ $canDel : AbsObject \times String \rightarrow Bool$ ] %::{
+  \[
+  \begin{aligned}
+  canDel(o, s) &= 
+  \begin{cases}
+    \mathtt{true} & \lnot hasProp(o, s) \lor (\bot, \bot, (\bot,
+      \lnot \mathtt{ND}, \bot)) \prec getProp(o, s) \\
+    \mathtt{false} & 
+      (\bot, \bot, (\bot, \mathtt{ND}, \bot)) \prec getProp(o, s) \\ 
+  \end{cases}
+  \end{aligned}
+  \]
+  \\
+%}::
+\end{description}
+%}::
+%%}::
+\subsection{Начальное состояние}%::{
+\label{sec:init}
+В начальном состоянии в абстрактной куче находятся стандартные
+объекты, все временные переменные в абстрактром стеке не
+инициализированны, а множество меток, которыми должны быть помечены
+ветви, содержит \emph{uncond}.
+
+У функции есть свойство length
+\[
+\begin{aligned}
+   i \in \EuScript{L},\: i & = (stack, state, marker) \\
+   marker & = {\emph{'uncond'}}\\
+   state \:&:\: Label \supset S_0 \xrightarrow{h} AbsObject \\
+   stack \:&:\: ((T \xrightarrow{t} Value), L_g, L_g), \quad \forall\: id \in T\::
+     t(id) = \bot \\
+\end{aligned}
+\]
+Множество меток стандартных объектов $S_0$ состоит из $l_{null}$,
+$L_g$,
+
+Глобальный объект:
+  невозможно использовать в качестве конструктора с оператором new.
+  невозможно вызвать как функцию.
+\[
+\begin{aligned}
+h(L_g) &= (this, l_{null})    \\
+singleObj(label) &= (\bot, \bot, \bot,  \bot,  \bot, \{ label \} ) \\
+this( \mbox{\texttt{``Object''  }}) &=  singleObj( L_{o}  )  \\
+this( \mbox{\texttt{``Function''}}) &=  singleObj( L_{f}  )  \\
+this( \mbox{\texttt{``Number''  }}) &=  singleObj( L_{n}  )  \\
+this( \mbox{\texttt{``String''  }}) &=  singleObj( L_{s}  )  \\
+this( \mbox{\texttt{``Boolean'' }}) &=  singleObj( L_{b}  )  \\
+this( \mbox{\texttt{``Date''    }}) &=  singleObj( L_{d}  )  \\
+this( \mbox{\texttt{``Array''   }}) &=  singleObj( L_{a}  )  \\
+this( \mbox{\texttt{``Math''   }})  &=  singleObj( L_{m}  )  \\
+  this( \mbox{\texttt{``NaN'' }})   &= unimplemented()  \\
+  this( \mbox{\texttt{``Infinity'' }})   &= unimplemented()  \\
+  % методы
+  this( \mbox{\texttt{``eval(x)'' }})   &= unimplemented()  \\
+  this( \mbox{\texttt{``parseInt(string, radix)'' }})   &= unimplemented()  \\
+  this( \mbox{\texttt{``parseFloat(string)'' }})   &= unimplemented()  \\
+  this( \mbox{\texttt{``isNaN(number)'' }})   &= unimplemented()  \\
+  this( \mbox{\texttt{``isFinite(number)'' }})   &= unimplemented()  \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{o})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{op} ) \{
+  DontEnum, DontDelete, ReadOnly \} \\
+  obj( \mbox{\texttt{``constructor'' }})   &= singleObj( L_{oc} ) \\
+  obj( \mbox{\texttt{``call'' }})   &= \mpb{10cm}{toObject, если не
+  undefined или null, иначе создать новый объект такой же, как если бы
+  был вызван конструктор}\\
+\end{aligned}
+\]
+
+
+Когда конструктор Object вызывается (как функция) без аргументов или с
+единственным аргументом value, предпринимаются следующие шаги:
+\begin{enumerate}
+  \item  Если value опущено - переход на шаг 8.
+
+  \item  Если тип value не равен Object - переход на шаг 5.
+
+  \item  Если value - встроенный объект ECMAScript object, то не
+    создавать нового объекта и просто вернуть value.
+
+  \item  Если value является объектом среды, предпринимаемые шаги и
+    возвращаемый объект зависят от конкретной реализации и,
+    возможно, от объекта среды.
+
+  \item  Если тип value равен String, вернуть ToObject(value).
+
+  \item  Если тип value равен Boolean, вернуть ToObject( value).
+
+  \item  Если тип value равен Number, вернуть ToObject(value).
+
+  \item  (Аргумент value не был передан или его тип был Null или
+    Undefined.) Создать новый встроенный объект ECMAScript.
+    Свойство [[Prototype]] создаваемого объекта устанавливается в
+    прототип Object.  Свойство [[Class]] создаваемого объекта
+    устанавливается в "Object". У создаваемого объекта нет свойства
+    [[Value]].  Вернуть созданный встроенный объект.
+\end{enumerate}
+
+\[
+\begin{aligned}
+  h(L_{op})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( l_{null} ) \\
+  obj( \mbox{\texttt{``constructor'' }})   &= createObj() \\
+  % методы
+  obj( \mbox{\texttt{``toString'' }})   &=  \\
+  obj( \mbox{\texttt{``toLocaleString'' }})   &=  \\
+  obj( \mbox{\texttt{``valueOf'' }})   &=  \\
+  obj( \mbox{\texttt{``hasOwnProperty'' }})   &=  \\
+  obj( \mbox{\texttt{``isPrototypeOf'' }})   &=  \\
+  obj( \mbox{\texttt{``propertyIsEnumerable'' }})   &=  \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{oc})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{f})  &= (fun, ) \\ 
+  fun( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \{
+  DontEnum, DontDelete, ReadOnly \} \\
+  fun( \mbox{\texttt{``constructor'' }})   &= unimplemented() \\
+  fun( \mbox{\texttt{``call'' }})	   &= unimplemented() \\
+\end{aligned}
+\]
+
+Методы call и constructor создают функцию с телом, определяемым во
+время выполнения. Эти инструкции не рассматриваются в анализе.
+
+\[
+\begin{aligned}
+  h(L_{fp})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fpp} ) \\
+  obj( \mbox{\texttt{``constructor'' }})   &= unimplemented() \\
+  % методы
+  obj( \mbox{\texttt{``toString'' }})   &=  \\
+  obj( \mbox{\texttt{``apply'' }})   &=  \\
+  obj( \mbox{\texttt{``call'' }})   &=  \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{fpp})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{op} ) \\
+  obj( \mbox{\texttt{``call''   }})   &= \mpb{10cm}{фукция, всегда возвращающая undefined}\\
+\end{aligned}
+\]
+У каждого экземпляра Function есть дополнительные атрибуты
+\begin{itemize}
+  \item length --- ожидаемое число аргументов
+  \item prototype --- инициализация внутреннего свойства prototype
+    создаваемого объекта до того, как объект Function вызовется для
+    него в качестве конструктора. Свойство обладает атрибутом {
+    DontDelete}.
+\end{itemize}
+
+Свойства объекта Number:
+\[
+\begin{aligned}
+  h(L_{n})  &= (num, ) \\ 
+  num( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{np} ) \{
+  DontEnum, DontDelete, ReadOnly \} \\
+  num( \mbox{\texttt{``constructor'' }})   &= singleObj( L_{nc} )() \\
+  num( \mbox{\texttt{``call'' }})	   &= toNumber() \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{np})  &= (prt, ) \\ 
+  prt( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{op} ) \\
+  prt( \mbox{\texttt{``constructor''   }})   &= \mpb{10cm}{встроенный конструктор}\\
+  prt( \mbox{\texttt{``[[Value]]''   }})   &= 0 \\
+  % методы
+  prt( \mbox{\texttt{``toString(radix)''               }}) &= \\
+  prt( \mbox{\texttt{``toLocaleString()''              }}) &= \\
+  prt( \mbox{\texttt{``valueOf()''                     }}) &= \\
+  prt( \mbox{\texttt{``toFixed(fractionDigits)''       }}) &= \\
+  prt( \mbox{\texttt{``toExponential(fractionDigits)'' }}) &= \\
+  prt( \mbox{\texttt{``toPrecision(precision)''        }}) &= \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{nc})  &= (obj, ) \\ 
+  obj( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+  % члены
+  obj( \mbox{\texttt{``length''           }}) &= 1 \\
+  obj( \mbox{\texttt{``MAX\_VALUE''        }}) &= \{ DontEnum, DontDelete, ReadOnly \} \\
+  obj( \mbox{\texttt{``MIN\_VALUE''        }}) &= \{ DontEnum, DontDelete, ReadOnly \} \\
+  obj( \mbox{\texttt{``NaN''              }}) &= \{ DontEnum, DontDelete, ReadOnly \} \\
+  obj( \mbox{\texttt{``NEGATIVE\_INFINITY''}}) &= \{ DontEnum, DontDelete, ReadOnly \} \\
+  obj( \mbox{\texttt{``POSITIVE\_INFINITY''}}) &= \{ DontEnum, DontDelete, ReadOnly \} \\
+\end{aligned}
+\]
+
+Свойства объекта Boolean:
+\[
+\begin{aligned}
+  h(L_{b})  &= (boo, ) \\ 
+  boo( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{bp} ) \{DontEnum, DontDelete, ReadOnly \} \\
+  boo( \mbox{\texttt{``constructor'' }})   &= singleObj( L_{bc} )() \\
+  boo( \mbox{\texttt{``call'' }})	   &= toBoolean() \\
+  boo( \mbox{\texttt{``[[Value]]'' }})	   &= \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{bp})  &= (prt, ) \\ 
+  prt( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+  prt( \mbox{\texttt{``constructor''   }})   &= \mpb{10cm}{встроенный конструктор}\\
+  prt( \mbox{\texttt{``[[Value]]''   }})   &= false \\
+  prt( \mbox{\texttt{``[[Class]]''   }})   &= Boolean \\
+  prt( \mbox{\texttt{``toString()''   }})   &= \\
+  prt( \mbox{\texttt{``valueOf()''   }})   &= \\
+  % методы
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{bc})  &= (con, ) \\ 
+  con( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+  con( \mbox{\texttt{``length''   }})   &= 1 \\
+\end{aligned}
+\]
+
+Свойства объекта String:
+\[
+\begin{aligned}
+  h(L_{s})  &= (str, ) \\ 
+  str( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{sp} ) \{DontEnum, DontDelete, ReadOnly \} \\
+  str( \mbox{\texttt{``constructor'' }})   &= singleObj( L_{sc} )() \\
+  str( \mbox{\texttt{``call'' }})	   &= toString() \\
+  str( \mbox{\texttt{``[[Value]]'' }})	   &= \\
+  str( \mbox{\texttt{``fromCharCode([ char0[, char1 [,...]]])''}}) &= \\
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+  h(L_{sp})  &= (prt, ) \\ 
+  prt( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+  prt( \mbox{\texttt{``constructor''   }})   &= \mpb{10cm}{встроенный конструктор}\\
+  prt( \mbox{\texttt{``[[Value]]''   }})   &= ``'' \\
+  prt( \mbox{\texttt{``[[Class]]''   }})   &= String \\
+  % методы
+  prt( \mbox{\texttt{``toString()''   }})   &= \\
+  prt( \mbox{\texttt{``valueOf()''   }})   &= \\
+  prt( \mbox{\texttt{``charAt(pos)''                           }})   &= \\
+  prt( \mbox{\texttt{``charCodeAt(pos)''                       }})   &= \\
+  prt( \mbox{\texttt{``concat([ string1[, string2 [,...]]])''  }})   &= \\
+  prt( \mbox{\texttt{``indexOf(searchString, position)''       }})   &= \\
+  prt( \mbox{\texttt{``lastIndexOf(searchString, position)''   }})   &= \\
+  prt( \mbox{\texttt{``localeCompare(that)''                   }})   &= \\
+  prt( \mbox{\texttt{``match(regexp)''                         }})   &= \\
+  prt( \mbox{\texttt{``replace(searchValue, replaceValue)''    }})   &= \\
+  prt( \mbox{\texttt{``search(regexp)''                        }})   &= \\
+  prt( \mbox{\texttt{``slice(start, end)''                     }})   &= \\
+  prt( \mbox{\texttt{``split(separator, limit)''               }})   &= \\
+  prt( \mbox{\texttt{``substring(start, end)''                 }})   &= \\
+  prt( \mbox{\texttt{``toLowerCase()''                         }})   &= \\
+  prt( \mbox{\texttt{``toLocaleLowerCase()''                   }})   &= \\
+  prt( \mbox{\texttt{``toUpperCase()''                         }})   &= \\
+  prt( \mbox{\texttt{``toLocaleUpperCase()''                   }})   &= \\
+\end{aligned}
+\]
+Экземпляры строк обладают свойствами \inncom{Value} и length.
+
+
+\[
+\begin{aligned}
+  h(L_{sc})  &= (con, ) \\ 
+  con( \mbox{\texttt{``prototype''   }})   &= singleObj( L_{fp} ) \\
+  con( \mbox{\texttt{``length''   }})   &= 1 \\
+\end{aligned}
+\]
+
+
+
+\[
+L_{undef} = \mpb{10cm}{undefined}
+\]
+
+%}::
+\subsection{Завершаемость анализа}%::{
+\label{sec:termination}
+При ограничении на длину строк $\EuScript{K}$ и ограничении на
+максимальную длину иерархии объектов областей видимости $\EuScript{S}$
+решётка $\EuScript{L}$ будет конечна. Поэтому, по теореме о
+неподвижных точках, сформулированной в главе
+\ref{sec:workList}, решётка $\EuScript{L}$ имеет минимальную
+неподвижную точку. Каждая функция переноса из множества $\EuScript{F}$
+монотонна. Поэтому, девяткой $(\EuScript{L}, \EuScript{F}, E, I, i,
+\tau, \EuScript{M}, m, w)$, где $E$ --- рёбра графа потока управления
+программы, размеченного функцией $m$, $I$ --- множество её точек
+входа, можно задать анализ вычисляемый изменнённым алгоритмом,
+описанным в главе \ref{sec:workList}.
+%}::
+
+% vim: foldmethod=marker:foldmarker=\:\:{,}\:\:
+

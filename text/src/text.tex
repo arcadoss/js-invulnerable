@@ -1,0 +1,128 @@
+%        File: text.tex
+%     Created: Втр Апр 20 04:00  2010 M
+% Last Change: Втр Апр 20 04:00  2010 M
+%
+\documentclass[a4paper, 11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[english,russian]{babel}
+\usepackage{cmap}                      % обеспечить поиск и копирование в PDF
+
+\usepackage{amsmath, amssymb}          % улучшить вид формул
+\usepackage{euscript}                  % рукописный наклонный шрифт 
+\usepackage{amsfonts,mathtext,mathtools}
+\usepackage{cite,enumerate,float}
+\usepackage{latexsym}
+\usepackage{fixltx2e}                  % нижний регистр для текста
+
+\usepackage[pdftex]{graphicx}          % используем рисунки
+\graphicspath{{img/}}                  % путь к рисункам
+\usepackage{listings}                  % листинг исходников
+\lstset{ %
+language=C++,                % choose the language of the code
+basicstyle=\footnotesize,       % the size of the fonts that are used for the code
+% frame=single,                   % adds a frame around the code
+% frameround=tttt,
+tabsize=2,                      % sets default tabsize to 2 spaces
+captionpos=b,                   % sets the caption-position to bottom
+morekeywords={function,var}         % if you want to add more keywords to the set
+}
+
+\usepackage{tikz}                      % для рисования 
+\usetikzlibrary{arrows,matrix,shapes,decorations.pathmorphing,backgrounds,positioning,fit,petri}
+
+
+% \usepackage{subfig}                    % для фигур в линию
+\usepackage{subfigure}                    % для фигур в линию
+
+
+\usepackage{hyperref}                  % используем гиперссылки
+\hypersetup{plainpages=false}
+\hypersetup{unicode}
+\hypersetup{colorlinks}
+\hypersetup{linkcolor=black}
+\hypersetup{citecolor=black}
+
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+
+\usepackage[margin=5.5cm]{geometry}    % Пакету позаботится о геометрии
+\geometry{left=2.2cm}                  % левое поле
+\geometry{right=2.2cm}                 % правое поле
+\geometry{top=2.2cm}                   % верхнее поле
+\geometry{bottom=2.2cm}                % нижнее поле
+\usepackage{indentfirst}               % делать отступ у первого абзаца
+\setlength{\parskip}{.3em}             % расстояние между абазацами
+\flushbottom                           % makes all text pages the same height
+\sloppy                                % makes TeX less fussy about line breaks
+\setcounter{tocdepth}{3}               % уровень вложенности в оглавлении
+% \centering\hyphenpenalty=10000         % Нормальное распределение
+\usepackage{enumitem}                  % управление списками
+\setlist{itemsep=.1em,topsep=.3em}        % нет интервалов между пунктами списка
+
+\usepackage[nottoc]{tocbibind}	      % вставить библиографию и убрать оглавление из оглавления
+\bibliographystyle{../bib/gost780u}
+% команда для изменения выравнивания элементов списков
+% \newcommand{\listindent}[1]{\setlength{\itemsep}{0pt} \setlength{\parskip}{0pt} \setlength{\leftskip}{#1em}}
+\newcommand{\listindent}[1]{\setlength{\leftskip}{#1}}
+\newcommand{\inncom}[1]{\texttt{[[{#1}]]}}
+\newcommand{\ts}[1]{\textsubscript{#1}}
+\newcommand{\mpb}[2]{\mbox{\parbox{#1}{#2}}}
+
+% \setlength{\emergencystretch}{0.3em}
+% \pretolerance=1000
+
+
+\begin{document}
+
+%    Титульная страница %{{{
+  \begin{titlepage}
+    \input{title.tex}
+  \end{titlepage} 
+%}}}
+%    Содержание %{{{
+\tableofcontents
+\clearpage
+%}}}
+%    Введение %{{{
+\pagenumbering{arabic}
+\section{Введение}
+\input{intro.tex}
+\clearpage
+ 
+%}}}
+%    Цели и задачи КР %{{{
+\section{Цели и задачи дипломной работы работы}
+\input{task.tex}
+\clearpage
+ 
+%}}}
+%    Краткое описание языка %{{{
+\section{Краткое описание семантики языка}
+\input{js-features.tex}
+\clearpage
+%}}}
+%    Обзор и существующих решений %{{{
+\section{Существующие решения}
+\input{overview.tex}
+\clearpage
+ 
+%}}}
+%    Решение задачи %{{{
+\section{Решение задачи}
+\input{algorithm.tex}
+\clearpage
+%}}}
+%    Экспериментальное исследование %{{{
+\section{Экспериментальное исследование}
+\input{experiment.tex}
+\clearpage 
+%}}}
+%    Список литературы %{{{
+\renewcommand*{\refname}{}
+\section{Список литературы}
+\bibliography{../bib/diploma} 
+%}}}
+\end{document}
+% vim:fdm=marker
